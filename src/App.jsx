@@ -23,6 +23,14 @@ const PHASES = [
 
 const VALID_VIEWS = PHASES.flatMap((p) => p.items.map((m) => m.id))
 
+// Top-bar quick links (the rest live in the menu)
+const NAV_LINKS = [
+  { id: 'home', name: 'Home' },
+  { id: 'dashboard', name: 'Workspace' },
+  { id: 'story-forge', name: 'Testing' },
+  { id: 'code-review', name: 'Analysis' }
+]
+
 // Hash routing: every module gets a shareable URL, e.g. https://app/#/code-review
 function viewFromHash() {
   const v = window.location.hash.replace(/^#\/?/, '')
@@ -34,10 +42,12 @@ export default function App() {
   const [projects, setProjects] = useState([])
   const [projectId, setProjectId] = useState('')
   const [dbError, setDbError] = useState('')
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const setView = useCallback((v) => {
     window.location.hash = `/${v}`
     setViewState(v)
+    setMenuOpen(false)
     window.scrollTo(0, 0)
   }, [])
 
@@ -64,50 +74,98 @@ export default function App() {
   const moduleProps = { project, refreshProjects }
 
   return (
-    <div className="shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-mark"><span className="ntt">NTT DATA</span><span className="tick" /></div>
-          <div className="brand-sub">Guidewire SDLC Accelerator</div>
+    <div className="app">
+      {view === 'home' && (
+        <div className="announce">
+          <div className="announce-inner">
+            <span className="new-badge">New</span>
+            <span>Guidewire AI Testing Suite is live with Claude Sonnet integration</span>
+            <button className="announce-link" onClick={() => setView('story-forge')}>Explore tools →</button>
+          </div>
         </div>
-        <nav className="rail" aria-label="Lifecycle modules">
-          {PHASES.map((phase, pi) => (
-            <div className="rail-phase" key={phase.label} style={{ padding: 0 }}>
-              <div className="rail-phase-label" style={{ padding: '0 24px' }}>{phase.label}</div>
-              {phase.items.map((m) => (
-                <button
-                  key={m.id}
-                  className={`rail-item ${view === m.id ? 'active' : ''}`}
-                  onClick={() => setView(m.id)}
-                >
-                  <span className="rail-node" />{m.name}
-                </button>
-              ))}
-              {pi < PHASES.length - 1 && <div className="rail-connect" />}
-            </div>
-          ))}
-        </nav>
-        <div className="sidebar-foot">Guidewire Practice · Global Delivery</div>
-      </aside>
+      )}
+
+      <header className="topbar">
+        <div className="topbar-inner">
+          <button className="logo" onClick={() => setView('home')} aria-label="GuidewireAI home">
+            <span className="logo-dash" aria-hidden="true" />
+            Guidewire<span className="accent">AI</span>
+          </button>
+          <nav className="topnav" aria-label="Primary">
+            {NAV_LINKS.map((l) => (
+              <button
+                key={l.id}
+                className={view === l.id ? 'active' : ''}
+                onClick={() => setView(l.id)}
+              >
+                {l.name}
+              </button>
+            ))}
+          </nav>
+          <span className="topbar-spacer" />
+          <button className="btn-demo" onClick={() => setView('dashboard')}>Book a demo</button>
+          <button
+            className="hamburger"
+            aria-label="Open menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((o) => !o)}
+          >
+            <span /><span /><span />
+          </button>
+        </div>
+      </header>
+
+      {menuOpen && (
+        <div className="menu-panel">
+          <div className="menu-inner">
+            {PHASES.map((phase) => (
+              <React.Fragment key={phase.label}>
+                <div className="menu-group-label">{phase.label}</div>
+                {phase.items.map((m) => (
+                  <button
+                    key={m.id}
+                    className={`menu-item ${view === m.id ? 'active' : ''}`}
+                    onClick={() => setView(m.id)}
+                  >
+                    {m.name}
+                  </button>
+                ))}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      )}
 
       <main className="main">
-        {view !== 'home' && (
-          <ProjectBar
-            projects={projects}
-            projectId={projectId}
-            setProjectId={setProjectId}
-            refreshProjects={refreshProjects}
-            dbError={dbError}
-          />
+        {view === 'home' ? (
+          <Home go={setView} />
+        ) : (
+          <div className="page">
+            <ProjectBar
+              projects={projects}
+              projectId={projectId}
+              setProjectId={setProjectId}
+              refreshProjects={refreshProjects}
+              dbError={dbError}
+            />
+            {view === 'dashboard' && <Dashboard {...moduleProps} go={setView} projects={projects} />}
+            {view === 'story-forge' && <StoryForge {...moduleProps} />}
+            {view === 'code-review' && <CodeReview {...moduleProps} />}
+            {view === 'test-strategist' && <TestStrategist {...moduleProps} />}
+            {view === 'release-navigator' && <ReleaseNavigator {...moduleProps} />}
+            {view === 'defect-triage' && <DefectTriage {...moduleProps} />}
+          </div>
         )}
-        {view === 'home' && <Home go={setView} />}
-        {view === 'dashboard' && <Dashboard {...moduleProps} go={setView} projects={projects} />}
-        {view === 'story-forge' && <StoryForge {...moduleProps} />}
-        {view === 'code-review' && <CodeReview {...moduleProps} />}
-        {view === 'test-strategist' && <TestStrategist {...moduleProps} />}
-        {view === 'release-navigator' && <ReleaseNavigator {...moduleProps} />}
-        {view === 'defect-triage' && <DefectTriage {...moduleProps} />}
       </main>
+
+      <footer className="foot">
+        <div className="foot-inner">
+          <span>
+            <strong style={{ color: 'var(--ink)' }}>GuidewireAI</strong> · AI accelerators for Guidewire InsuranceSuite
+          </span>
+          <span>Powered by Claude Sonnet · NTT DATA Guidewire Practice</span>
+        </div>
+      </footer>
     </div>
   )
 }

@@ -1,123 +1,117 @@
 import React, { useState } from 'react'
-import { CATALOG, SHARED_CONFIG } from '../lib/catalog.js'
-import DemoPreview from '../components/DemoPreview.jsx'
+import { CATALOG } from '../lib/catalog.js'
+
+// Tab metadata, in display order.
+const TABS = [
+  {
+    id: 'Testing',
+    label: 'Testing',
+    overline: 'Testing-focused AI',
+    title: 'Testing accelerators',
+    desc: 'AI tools that generate structured test cases and realistic test data for Guidewire InsuranceSuite modules in seconds.'
+  },
+  {
+    id: 'Analysis',
+    label: 'Analysis',
+    overline: 'Analysis-focused AI',
+    title: 'Analysis accelerators',
+    desc: 'AI tools that review code, assess upgrade impact and triage production defects across the Guidewire delivery lifecycle.'
+  }
+]
+
+// Line icons for each tool (28×28 viewport, stroke = currentColor).
+const ICONS = {
+  flask: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 3h6M10 3v6.5L5 18a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-8.5V3" />
+      <path d="M7.5 14h9" />
+    </svg>
+  ),
+  story: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 4h9l4 4v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" />
+      <path d="M13 4v4h4M8 13h7M8 17h7M8 9h2" />
+    </svg>
+  ),
+  code: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 6l-3 12" />
+    </svg>
+  ),
+  rocket: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 15c-1.5 1-2 5-2 5s4-.5 5-2a3 3 0 0 0-3-3Z" />
+      <path d="M9 13c-1-2-.5-6 3-9 3.5 3 4 7 3 9M14 4c2.5 0 5 2.5 5 5M9 13l-2 2 4 4 2-2" />
+    </svg>
+  ),
+  triage: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="8" y="6" width="8" height="13" rx="4" />
+      <path d="M12 3v3M9 9 5 7M9 13H4M9 17l-4 2M15 9l4-2M15 13h5M15 17l4 2" />
+    </svg>
+  )
+}
 
 export default function Home({ go }) {
+  const [tab, setTab] = useState('Testing')
+  const counts = Object.fromEntries(
+    TABS.map((t) => [t.id, CATALOG.filter((m) => m.category === t.id).length])
+  )
+  const active = TABS.find((t) => t.id === tab)
+  const tools = CATALOG.filter((m) => m.category === tab)
+
   return (
     <div>
-      <header className="page-head showcase-hero">
-        <div className="page-eyebrow">NTT DATA Guidewire Practice · AI Accelerator</div>
-        <h1 className="page-title" style={{ fontSize: 32 }}>One lifecycle, five copilots.</h1>
-        <p className="page-desc">
-          AI assistance at every gate of Guidewire InsuranceSuite delivery — from raw requirement to
-          production triage. Four structured copilots and one multi-agent pipeline, all on a shared
-          project workspace with saved, exportable outputs.
+      <section className="hero">
+        <div className="hero-pill">
+          <span className="dot" aria-hidden="true" />
+          {CATALOG.length} live AI tools · Powered by Claude Sonnet
+        </div>
+        <h1 className="hero-title">Welcome to the future of insurance testing.</h1>
+        <p className="hero-sub">
+          A suite of AI accelerators for Guidewire InsuranceSuite — from test case generation to defect
+          analysis, built for QA &amp; AMS teams.
         </p>
-        <div className="hero-rail" aria-hidden="true">
-          {CATALOG.map((m, i) => (
-            <React.Fragment key={m.id}>
-              <button className="hero-node" onClick={() => go(m.id)}>
-                <span className="hero-phase">{m.phase}</span>
-                {m.name}
-              </button>
-              {i < CATALOG.length - 1 && <span className="hero-link" />}
-            </React.Fragment>
-          ))}
+        <div className="hero-cta">
+          <button className="btn btn-primary" onClick={() => go('story-forge')}>Get started</button>
+          <button className="btn btn-ghost" onClick={() => go('dashboard')}>Book a demo</button>
         </div>
-      </header>
+      </section>
 
-      {CATALOG.map((m) => <AgentSection key={m.id} m={m} go={go} />)}
-
-      <div className="panel">
-        <h3>Platform configuration (shared)</h3>
-        <ConfigTable rows={SHARED_CONFIG} />
-        <p style={{ fontSize: 12.5, color: 'var(--slate)', marginTop: 10 }}>
-          ROI figures are indicative practice estimates — edit them in <code>src/lib/catalog.js</code> as
-          engagement benchmarks firm up. Drop a screen recording at <code>public/media/&lt;agent-id&gt;.gif</code>{' '}
-          to replace any animated preview with the real demo.
-        </p>
-      </div>
-    </div>
-  )
-}
-
-function AgentSection({ m, go }) {
-  const [copied, setCopied] = useState(false)
-  const path = `/#/${m.id}`
-  const fullUrl = `${window.location.origin}${path}`
-
-  function copy() {
-    navigator.clipboard?.writeText(fullUrl).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1800)
-    })
-  }
-
-  return (
-    <section className="agent-showcase" id={`about-${m.id}`}>
-      <div className="agent-showcase-media">
-        <DemoPreview id={m.id} />
-        <div className="url-row">
-          <code className="url-chip">{path}</code>
-          <button className="btn btn-ghost btn-sm" onClick={copy}>{copied ? 'Copied ✓' : 'Copy URL'}</button>
-          <button className="btn btn-primary btn-sm" onClick={() => go(m.id)}>Launch</button>
-        </div>
-      </div>
-
-      <div className="agent-showcase-body">
-        <div className="page-eyebrow">
-          {m.phase}{m.agentic ? ' · Agentic' : ''}
-        </div>
-        <h2 className="showcase-name">{m.name}</h2>
-        <p className="showcase-tagline">{m.tagline}</p>
-        <p className="showcase-desc">{m.description}</p>
-
-        <div className="roi-row">
-          {m.roi.map((r, i) => (
-            <div key={i} className="roi-tile">
-              <div className="roi-metric">{r.metric}</div>
-              <div className="roi-label">{r.label}</div>
-            </div>
-          ))}
-        </div>
-
-        <details className="showcase-details">
-          <summary>Benefits</summary>
-          <ul className="plain">{m.benefits.map((b, i) => <li key={i}>{b}</li>)}</ul>
-        </details>
-
-        <details className="showcase-details">
-          <summary>Taxonomy</summary>
-          <div className="tax-grid">
-            {Object.entries(m.taxonomy).map(([k, v]) => (
-              <React.Fragment key={k}>
-                <div className="tax-k">{k}</div>
-                <div className="tax-v">{v}</div>
-              </React.Fragment>
-            ))}
-          </div>
-        </details>
-
-        <details className="showcase-details">
-          <summary>Configuration parameters</summary>
-          <ConfigTable rows={m.config} />
-        </details>
-      </div>
-    </section>
-  )
-}
-
-function ConfigTable({ rows }) {
-  return (
-    <table className="config-table">
-      <thead>
-        <tr><th>Parameter</th><th>Values</th></tr>
-      </thead>
-      <tbody>
-        {rows.map((r, i) => (
-          <tr key={i}><td><code>{r.param}</code></td><td>{r.values}</td></tr>
+      <div className="tabs" role="tablist" aria-label="Tool categories">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={tab === t.id}
+            className={`tab ${tab === t.id ? 'active' : ''}`}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+            <span className="count">{counts[t.id]}</span>
+          </button>
         ))}
-      </tbody>
-    </table>
+      </div>
+
+      <section className="section">
+        <div className="section-overline">{active.overline}</div>
+        <h2 className="section-title">{active.title}</h2>
+        <p className="section-desc">{active.desc}</p>
+
+        <div className="tool-grid">
+          {tools.map((m) => (
+            <button key={m.id} className={`tool-card tone-${m.badge.tone}`} onClick={() => go(m.id)}>
+              <div className="tool-card-top">
+                <span className="tool-icon">{ICONS[m.icon]}</span>
+                <span className={`tool-badge tone-${m.badge.tone}`}>{m.badge.label}</span>
+              </div>
+              <h3 className="tool-name">{m.name}</h3>
+              <p className="tool-desc">{m.tagline}</p>
+              <span className="tool-launch">Launch tool <span className="arr">→</span></span>
+            </button>
+          ))}
+        </div>
+      </section>
+    </div>
   )
 }

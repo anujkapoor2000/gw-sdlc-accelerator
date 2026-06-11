@@ -35,8 +35,8 @@ export default function Dashboard({ project, go }) {
   return (
     <div>
       <header className="page-head">
-        <div className="page-eyebrow">NTT DATA Guidewire Practice</div>
-        <h1 className="page-title">One lifecycle, four copilots</h1>
+        <div className="page-eyebrow">GuidewireAI · Workspace</div>
+        <h1 className="page-title">One lifecycle, five AI accelerators</h1>
         <p className="page-desc">
           AI assistance at each gate of the Guidewire delivery lifecycle — plan, build, test, release —
           with every output saved against the project it belongs to.

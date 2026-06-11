@@ -6,6 +6,9 @@ export const CATALOG = [
     id: 'story-forge',
     name: 'Story Forge',
     phase: 'Plan',
+    category: 'Testing',
+    icon: 'story',
+    badge: { label: 'PolicyCenter', tone: 'blue' },
     tagline: 'Requirements in, sprint-ready stories out.',
     description:
       'Converts raw business requirements — BRD extracts, workshop notes, emails — into INVEST-compliant user stories with Gherkin acceptance criteria, mapped Guidewire touchpoints, Fibonacci estimates with rationale, explicit dependencies and open questions for the BA.',
@@ -36,6 +39,9 @@ export const CATALOG = [
     id: 'code-review',
     name: 'Code Review Copilot',
     phase: 'Build',
+    category: 'Analysis',
+    icon: 'code',
+    badge: { label: 'Cross-suite', tone: 'violet' },
     tagline: 'Principal-level Guidewire review on every commit-sized chunk.',
     description:
       'Reviews Gosu, PCF, integration, GX and batch code against Guidewire Cloud standards. Returns severity-calibrated findings (critical → info) with line-level locations, concrete fixes naming the GW construct to use, upgrade-safety flags and an overall code-health score.',
@@ -67,6 +73,9 @@ export const CATALOG = [
     id: 'test-strategist',
     name: 'Test Strategist',
     phase: 'Test',
+    category: 'Testing',
+    icon: 'flask',
+    badge: { label: 'ClaimCenter', tone: 'green' },
     tagline: 'Pyramid-balanced coverage, harness chosen per case.',
     description:
       'Derives executable test cases from a story, code or defect — choosing GUnit, GT-API, GT-UI or manual per case to keep the pyramid healthy. Calls out the test data to stage before execution and harness-specific automation notes.',
@@ -97,6 +106,9 @@ export const CATALOG = [
     id: 'release-navigator',
     name: 'Release Navigator',
     phase: 'Release',
+    category: 'Analysis',
+    icon: 'rocket',
+    badge: { label: 'BillingCenter', tone: 'amber' },
     tagline: 'Know what the next ski release does to you before it lands.',
     description:
       'Two lenses on release readiness: a 16-practice CI/CD maturity self-check with live scoring, and AI impact analysis of your customisation inventory against the target Guidewire Cloud platform release — per-area impact, remediation actions, regression focus, effort band and a pre-upgrade checklist.',
@@ -128,6 +140,9 @@ export const CATALOG = [
     id: 'defect-triage',
     name: 'Defect Triage Agent',
     phase: 'Operate',
+    category: 'Analysis',
+    icon: 'triage',
+    badge: { label: 'ClaimCenter', tone: 'green' },
     agentic: true,
     tagline: 'Four agents work the case — and send it back when confidence is low.',
     description:
