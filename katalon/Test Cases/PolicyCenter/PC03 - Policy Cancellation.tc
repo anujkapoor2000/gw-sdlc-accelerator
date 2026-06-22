@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TestCaseEntity>
+   <description>Cancel an in-force policy with a flat cancellation reason and confirm the cancelled status.</description>
+   <name>PC03 - Policy Cancellation</name>
+   <tag></tag>
+   <comment></comment>
+   <testCaseGuid>76a0961c-2102-4f13-b305-11e654085f6b</testCaseGuid>
+</TestCaseEntity>

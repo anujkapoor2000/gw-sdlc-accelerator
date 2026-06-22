@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TestCaseEntity>
+   <description>On an open claim, set a reserve and issue a check payment against it.</description>
+   <name>CC02 - Set Reserve and Issue Payment</name>
+   <tag></tag>
+   <comment></comment>
+   <testCaseGuid>cb17cb6b-1bfb-49c3-b5c8-901b7a60a7f9</testCaseGuid>
+</TestCaseEntity>

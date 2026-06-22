@@ -5,6 +5,7 @@ import Dashboard from './modules/Dashboard.jsx'
 import StoryForge from './modules/StoryForge.jsx'
 import CodeReview from './modules/CodeReview.jsx'
 import TestStrategist from './modules/TestStrategist.jsx'
+import FlowAutomator from './modules/FlowAutomator.jsx'
 import ReleaseNavigator from './modules/ReleaseNavigator.jsx'
 import DefectTriage from './modules/DefectTriage.jsx'
 import ProjectBar from './components/ProjectBar.jsx'
@@ -16,7 +17,10 @@ const PHASES = [
   ] },
   { label: 'Plan', items: [{ id: 'story-forge', name: 'Story Forge' }] },
   { label: 'Build', items: [{ id: 'code-review', name: 'Code Review Copilot' }] },
-  { label: 'Test', items: [{ id: 'test-strategist', name: 'Test Strategist' }] },
+  { label: 'Test', items: [
+    { id: 'test-strategist', name: 'Test Strategist' },
+    { id: 'flow-automator', name: 'Flow Automator' }
+  ] },
   { label: 'Release', items: [{ id: 'release-navigator', name: 'Release Navigator' }] },
   { label: 'Operate', items: [{ id: 'defect-triage', name: 'Defect Triage Agent' }] }
 ]
@@ -152,6 +156,7 @@ export default function App() {
             {view === 'story-forge' && <StoryForge {...moduleProps} />}
             {view === 'code-review' && <CodeReview {...moduleProps} />}
             {view === 'test-strategist' && <TestStrategist {...moduleProps} />}
+            {view === 'flow-automator' && <FlowAutomator {...moduleProps} />}
             {view === 'release-navigator' && <ReleaseNavigator {...moduleProps} />}
             {view === 'defect-triage' && <DefectTriage {...moduleProps} />}
           </div>

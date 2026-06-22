@@ -1,0 +1,5 @@
+key,value,notes
+PC_POLICY_NUMBER,0000000001,In-force Personal Auto policy used by PC02/PC03/PC04
+CC_POLICY_NUMBER,0000000001,Policy visible in ClaimCenter for FNOL (CC01)
+CC_CLAIM_NUMBER,235-53-365721,Open claim used by CC02/CC03
+BC_ACCOUNT_NUMBER,9000000001,Billing account with balance and invoices used by BC01/BC02/BC03

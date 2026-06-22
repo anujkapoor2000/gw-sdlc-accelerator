@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TestCaseEntity>
+   <description>Create a producer record and issue an account disbursement.</description>
+   <name>BC03 - Producer Setup and Disbursement</name>
+   <tag></tag>
+   <comment></comment>
+   <testCaseGuid>ae692755-3d7c-49d8-85dc-4bbe7e707c6f</testCaseGuid>
+</TestCaseEntity>

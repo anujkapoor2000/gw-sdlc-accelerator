@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ProjectEntity>
+   <description>Katalon Studio accelerator: reusable, keyword-driven UI automation for common Guidewire InsuranceSuite flows across PolicyCenter, ClaimCenter, BillingCenter and Jutro digital. Part of the NTT DATA Guidewire SDLC Accelerator.</description>
+   <name>GuidewireFlowAutomation</name>
+   <tag></tag>
+   <type>WEBUI</type>
+   <uuid>cbc188a0-e62d-491c-9cab-fbc11a0716ea</uuid>
+</ProjectEntity>

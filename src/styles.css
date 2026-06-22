@@ -340,6 +340,13 @@ textarea, input, select { font-family: inherit; font-size: 14px; }
 .tag.red { background: #fef2f2; color: var(--crit); }
 .tag.green { background: var(--green-tint); color: var(--ok); }
 .tag.amber { background: var(--amber-tint); color: var(--warn); }
+.tag.violet { background: var(--violet-tint); color: var(--violet); }
+.code-block {
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.55;
+  background: #0f172a; color: #e2e8f0; border-radius: 8px;
+  padding: 14px 16px; margin: 8px 0 0; overflow-x: auto; white-space: pre;
+}
+.code-block code { font-family: inherit; color: inherit; }
 .gherkin {
   font-family: var(--mono); font-size: 12.5px; background: #f6f8fb;
   border-radius: 8px; padding: 10px 12px; margin: 6px 0; white-space: pre-wrap;

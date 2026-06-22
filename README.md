@@ -9,6 +9,7 @@ AI-assisted lifecycle tooling for Guidewire InsuranceSuite delivery — plan, bu
 | Plan | **Story Forge** | Raw requirements → sprint-ready stories: Gherkin ACs, Guidewire touchpoints (entities, PCF, plugins, Cloud API), Fibonacci points with rationale, dependencies, open questions for the BA |
 | Build | **Code Review Copilot** | Principal-level review of Gosu / PCF / integration / batch code. Severity-tagged findings (critical → info) across standards, performance, security and upgrade/Cloud safety, with concrete fixes and a code-health score |
 | Test | **Test Strategist** | Derives executable test cases from stories, code or defects — pyramid-balanced across GUnit, GT-API and GT-UI, with test data to stage and automation notes |
+| Test | **Flow Automator** | Generates keyword-driven **Katalon Studio** UI automation for common Guidewire flows (submission→bind, FNOL, billing payment, Jutro quote-and-buy) across PC/CC/BC/Jutro. Ships alongside a ready-to-run Katalon project in [`/katalon`](katalon/) |
 | Release | **Release Navigator** | CI/CD readiness self-check (16 practices) plus AI impact analysis of your customisation inventory against the target ski release, with effort band and pre-upgrade checklist |
 | Operate | **Defect Triage Agent** *(agentic)* | A four-agent pipeline works the case autonomously: an Intake Agent structures the report, an Investigator forms ranked root-cause hypotheses with confidence scores, a Router assigns the case — or sends it back for a deeper pass when confidence falls below threshold (max 2 loops) — and a Fix Planner writes the workaround, permanent fix and regression coverage. Every agent handoff renders on a live timeline with inspectable output |
 
@@ -70,9 +71,27 @@ src/
   lib/api.js       Client helpers (Claude call, JSON parsing, db)
   components/      ProjectBar, SaveToProject
   lib/catalog.js   Showcase metadata: ROI, taxonomy, config params per agent
-  modules/         Home (showcase), Dashboard, StoryForge, CodeReview, TestStrategist, ReleaseNavigator, DefectTriage
+  modules/         Home (showcase), Dashboard, StoryForge, CodeReview, TestStrategist, FlowAutomator, ReleaseNavigator, DefectTriage
 public/media/      Drop <agent-id>.gif here to replace animated previews
+katalon/           Katalon Studio accelerator: reusable keyword libraries + ready-to-run flows for PC/CC/BC/Jutro (see katalon/README.md)
 ```
+
+## Katalon Flow Automation accelerator
+
+The [`/katalon`](katalon/) folder is a standalone **Katalon Studio** project — open
+it directly in Katalon Studio. It packages reusable, keyword-driven UI automation
+for the common Guidewire journeys teams re-test each sprint:
+
+- **PolicyCenter** — new Personal Auto submission → quote → bind, mid-term policy
+  change, cancellation, renewal
+- **ClaimCenter** — FNOL → new claim, reserves + payment, assign + close
+- **BillingCenter** — direct-bill payment, invoice review, producer + disbursement
+- **Jutro** — digital quote-and-buy, self-service FNOL
+
+One reusable keyword library per product keeps locators in a single place; URLs and
+credentials swap via execution profiles. The in-app **Flow Automator** module
+generates new scripts in this same style. See [`katalon/README.md`](katalon/README.md)
+for setup, running headless in CI, and adapting locators to a customised environment.
 
 ## Extending
 

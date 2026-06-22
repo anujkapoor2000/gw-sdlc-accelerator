@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TestCaseEntity>
+   <description>Run the Jutro quote-and-buy journey end to end: personal info, vehicle, coverages, quote, pay and bind.</description>
+   <name>JU01 - Digital Quote and Buy</name>
+   <tag></tag>
+   <comment></comment>
+   <testCaseGuid>9fdb2f9a-3bef-4e71-9c22-e7e10c102666</testCaseGuid>
+</TestCaseEntity>

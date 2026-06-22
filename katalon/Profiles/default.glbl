@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GlobalVariableEntity>
+   <description>Environment configuration for the default profile. URLs and credentials are read by the Guidewire keyword libraries. Override per environment; never commit real production secrets.</description>
+   <name>default</name>
+   <tag></tag>
+   <defaultProfile>true</defaultProfile>
+   <GlobalVariableEntity>
+      <description>PolicyCenter base URL</description>
+      <initValue>'http://localhost:8180/pc/PolicyCenter.do'</initValue>
+      <name>PC_URL</name>
+   </GlobalVariableEntity>
+   <GlobalVariableEntity>
+      <description>ClaimCenter base URL</description>
+      <initValue>'http://localhost:8580/cc/ClaimCenter.do'</initValue>
+      <name>CC_URL</name>
+   </GlobalVariableEntity>
+   <GlobalVariableEntity>
+      <description>BillingCenter base URL</description>
+      <initValue>'http://localhost:8080/bc/BillingCenter.do'</initValue>
+      <name>BC_URL</name>
+   </GlobalVariableEntity>
+   <GlobalVariableEntity>
+      <description>Jutro digital experience base URL</description>
+      <initValue>'http://localhost:8280/index.html'</initValue>
+      <name>JUTRO_URL</name>
+   </GlobalVariableEntity>
+   <GlobalVariableEntity>
+      <description>Back-office username (PC/CC/BC)</description>
+      <initValue>'su'</initValue>
+      <name>USERNAME</name>
+   </GlobalVariableEntity>
+   <GlobalVariableEntity>
+      <description>Back-office password (PC/CC/BC)</description>
+      <initValue>'gw'</initValue>
+      <name>PASSWORD</name>
+   </GlobalVariableEntity>
+   <GlobalVariableEntity>
+      <description>Jutro self-service portal username</description>
+      <initValue>'portal.user@example.com'</initValue>
+      <name>JUTRO_USERNAME</name>
+   </GlobalVariableEntity>
+   <GlobalVariableEntity>
+      <description>Jutro self-service portal password</description>
+      <initValue>'ChangeMe123!'</initValue>
+      <name>JUTRO_PASSWORD</name>
+   </GlobalVariableEntity>
+   <GlobalVariableEntity>
+      <description>Explicit wait ceiling (seconds) used by keyword libraries</description>
+      <initValue>30</initValue>
+      <name>TIMEOUT</name>
+   </GlobalVariableEntity>
+   <GlobalVariableEntity>
+      <description>Capture a screenshot after each business step</description>
+      <initValue>true</initValue>
+      <name>SCREENSHOT_EACH_STEP</name>
+   </GlobalVariableEntity>
+</GlobalVariableEntity>

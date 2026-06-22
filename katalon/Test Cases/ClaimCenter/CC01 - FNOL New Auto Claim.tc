@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TestCaseEntity>
+   <description>File a First Notice of Loss against an in-force policy and submit a new claim.</description>
+   <name>CC01 - FNOL New Auto Claim</name>
+   <tag></tag>
+   <comment></comment>
+   <testCaseGuid>2626fe38-b793-494e-9a21-1a2f80ad5f14</testCaseGuid>
+</TestCaseEntity>

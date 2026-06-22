@@ -5,3 +5,11 @@ dist/
 .vercel
 .env
 .env.*
+
+# Katalon Studio build / run artifacts
+katalon/bin/
+katalon/Libs/
+katalon/Reports/
+katalon/.cache/
+katalon/console.properties
+katalon/*.log

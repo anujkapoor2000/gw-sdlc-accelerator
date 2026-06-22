@@ -103,6 +103,40 @@ export const CATALOG = [
     ]
   },
   {
+    id: 'flow-automator',
+    name: 'Flow Automator',
+    phase: 'Test',
+    category: 'Testing',
+    icon: 'robot',
+    badge: { label: 'Cross-suite', tone: 'violet' },
+    tagline: 'Common Guidewire flows, scripted in Katalon — PC, CC, BC & Jutro.',
+    description:
+      'Generates keyword-driven Katalon Studio automation for the everyday Guidewire journeys teams re-test each sprint — new submission to bind, FNOL, billing payments, Jutro quote-and-buy. Output matches the bundled "Guidewire Flow Automation" Katalon accelerator: reusable per-product keyword libraries, defensive OOTB/data-test locators and environment profiles. Ships as a ready-to-open Katalon project in the repo under /katalon.',
+    benefits: [
+      'Regression UI packs scaffolded in minutes, not days',
+      'Keyword-driven design keeps locators in one place per product — release-resilient',
+      'Same library style across PC, CC, BC and Jutro digital',
+      'Self-seeding happy paths plus clearly-flagged data-dependent flows'
+    ],
+    roi: [
+      { metric: '60%+', label: 'faster first-draft UI automation' },
+      { metric: '12', label: 'ready-to-run flows shipped in /katalon' },
+      { metric: '1 place', label: 'to fix a locator when a screen is customised' }
+    ],
+    taxonomy: {
+      'AI pattern': 'Structured code generation (keyword-driven)',
+      Products: 'PC · CC · BC · Jutro',
+      Tooling: 'Katalon Studio (WebUI)',
+      Input: 'Product + flow + optional screen notes',
+      Output: 'Katalon Groovy test case + keyword additions JSON'
+    },
+    config: [
+      { param: 'Product', values: 'PolicyCenter / ClaimCenter / BillingCenter / Jutro' },
+      { param: 'Flow', values: 'Submission · Policy change · Cancellation · Renewal · FNOL · Claim financials · Billing payment · Quote-and-buy · Self-service' },
+      { param: 'Flow notes', values: 'Optional screen names, fields, seed data' }
+    ]
+  },
+  {
     id: 'release-navigator',
     name: 'Release Navigator',
     phase: 'Release',
