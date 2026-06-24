@@ -137,6 +137,40 @@ export const CATALOG = [
     ]
   },
   {
+    id: 'test-migrator',
+    name: 'Test Migrator',
+    phase: 'Test',
+    category: 'Testing',
+    icon: 'migrate',
+    badge: { label: 'Cross-suite', tone: 'violet' },
+    tagline: 'Manual test cases in, automated scripts out — gaps and test data flagged.',
+    description:
+      'Ingests a client’s existing manual Guidewire test cases — however messy, pasted straight from Excel, ALM, Zephyr or qTest — and converts each into a runnable automated script (Katalon keyword-driven Groovy, Selenium + Java, or Cucumber BDD). For every case it also surfaces the gaps that would block or destabilise automation (missing preconditions, ambiguous steps, no verification point, non-deterministic timing) and itemises the exact test data each script needs, with a generate / stage / existing-record strategy per datum.',
+    benefits: [
+      'Turns a legacy manual regression pack into automation drafts in minutes',
+      'Honest automation verdict per case — automate, fix-then-automate, or keep manual',
+      'Gap analysis exposes weak manual tests before they become flaky automated ones',
+      'Per-case test-data manifest removes the #1 cause of blocked automation runs'
+    ],
+    roi: [
+      { metric: '70%+', label: 'faster manual-to-automation conversion' },
+      { metric: 'Per case', label: 'gap + test-data analysis, not just a script' },
+      { metric: '3', label: 'frameworks: Katalon · Selenium · Cucumber' }
+    ],
+    taxonomy: {
+      'AI pattern': 'Structured transformation + gap analysis',
+      Products: 'PC · CC · BC · Jutro · Cross-suite',
+      Input: 'Raw manual test cases (one or many)',
+      Output: 'Automated scripts + gaps + test-data manifest JSON',
+      Persistence: 'Neon Postgres artifact'
+    },
+    config: [
+      { param: 'Framework', values: 'Katalon (Groovy) / Selenium + Java (TestNG) / Cucumber BDD' },
+      { param: 'Primary product', values: 'PC / CC / BC / Jutro / Cross-suite' },
+      { param: 'Manual test cases', values: 'Free text — single case or a whole pack at once' }
+    ]
+  },
+  {
     id: 'release-navigator',
     name: 'Release Navigator',
     phase: 'Release',

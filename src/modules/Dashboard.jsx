@@ -5,6 +5,7 @@ const MODULES = [
   { id: 'story-forge', phase: 'Plan', name: 'Story Forge', desc: 'Raw requirements → sprint-ready stories with Gherkin ACs, GW touchpoints and points.' },
   { id: 'code-review', phase: 'Build', name: 'Code Review Copilot', desc: 'Principal-level Gosu/PCF/integration review against Guidewire Cloud standards.' },
   { id: 'test-strategist', phase: 'Test', name: 'Test Strategist', desc: 'Pyramid-balanced coverage across GUnit, GT-API and GT-UI with staged test data.' },
+  { id: 'test-migrator', phase: 'Test', name: 'Test Migrator', desc: 'Manual test cases → runnable automation (Katalon/Selenium/Cucumber), with gaps and required test data flagged per case.' },
   { id: 'release-navigator', phase: 'Release', name: 'Release Navigator', desc: 'CI/CD readiness self-check and ski-release upgrade impact on your customisations.' },
   { id: 'defect-triage', phase: 'Operate · Agentic', name: 'Defect Triage Agent', desc: 'Four agents work the case autonomously: investigate, route — or loop back when confidence is low — then plan the fix.' }
 ]

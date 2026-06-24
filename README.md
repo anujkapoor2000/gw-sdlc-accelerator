@@ -10,6 +10,7 @@ AI-assisted lifecycle tooling for Guidewire InsuranceSuite delivery — plan, bu
 | Build | **Code Review Copilot** | Principal-level review of Gosu / PCF / integration / batch code. Severity-tagged findings (critical → info) across standards, performance, security and upgrade/Cloud safety, with concrete fixes and a code-health score |
 | Test | **Test Strategist** | Derives executable test cases from stories, code or defects — pyramid-balanced across GUnit, GT-API and GT-UI, with test data to stage and automation notes |
 | Test | **Flow Automator** | Generates keyword-driven **Katalon Studio** UI automation for common Guidewire flows (submission→bind, FNOL, billing payment, Jutro quote-and-buy) across PC/CC/BC/Jutro. Ships alongside a ready-to-run Katalon project in [`/katalon`](katalon/) |
+| Test | **Test Migrator** | Takes a client's existing **manual** test cases (pasted as-is from Excel/ALM/Zephyr/qTest) and converts each into a runnable automated script — Katalon (Groovy), Selenium + Java, or Cucumber BDD. Per case it also flags the **gaps** that would block or destabilise automation and itemises the **test data** the script needs, with a generate / stage / existing-record strategy for each |
 | Release | **Release Navigator** | CI/CD readiness self-check (16 practices) plus AI impact analysis of your customisation inventory against the target ski release, with effort band and pre-upgrade checklist |
 | Operate | **Defect Triage Agent** *(agentic)* | A four-agent pipeline works the case autonomously: an Intake Agent structures the report, an Investigator forms ranked root-cause hypotheses with confidence scores, a Router assigns the case — or sends it back for a deeper pass when confidence falls below threshold (max 2 loops) — and a Fix Planner writes the workaround, permanent fix and regression coverage. Every agent handoff renders on a live timeline with inspectable output |
 
@@ -71,7 +72,7 @@ src/
   lib/api.js       Client helpers (Claude call, JSON parsing, db)
   components/      ProjectBar, SaveToProject
   lib/catalog.js   Showcase metadata: ROI, taxonomy, config params per agent
-  modules/         Home (showcase), Dashboard, StoryForge, CodeReview, TestStrategist, FlowAutomator, ReleaseNavigator, DefectTriage
+  modules/         Home (showcase), Dashboard, StoryForge, CodeReview, TestStrategist, FlowAutomator, TestMigrator, ReleaseNavigator, DefectTriage
 public/media/      Drop <agent-id>.gif here to replace animated previews
 katalon/           Katalon Studio accelerator: reusable keyword libraries + ready-to-run flows for PC/CC/BC/Jutro (see katalon/README.md)
 ```

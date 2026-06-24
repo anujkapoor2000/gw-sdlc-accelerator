@@ -55,6 +55,12 @@ const ICONS = {
       <rect x="4" y="8" width="16" height="11" rx="2" />
       <path d="M12 5V3M12 5a1.5 1.5 0 1 0 0-.01M8.5 13h.01M15.5 13h.01M9 16.5h6M2 12v3M22 12v3" />
     </svg>
+  ),
+  migrate: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 7h10M10 3l4 4-4 4" />
+      <path d="M20 17H10M14 21l-4-4 4-4" />
+    </svg>
   )
 }
 
