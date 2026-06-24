@@ -10,30 +10,8 @@ export async function callClaude({ system, prompt, maxTokens = 6000 }) {
       messages: [{ role: 'user', content: prompt }]
     })
   })
-
-  // Errors come back as JSON (the proxy sends them before streaming starts).
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}))
-    throw new Error(data.error || `Request failed (${res.status})`)
-  }
-
-  // Streamed text/plain response — accumulate the deltas into the full text.
-  const contentType = res.headers.get('content-type') || ''
-  if (res.body && contentType.includes('text/plain')) {
-    const reader = res.body.getReader()
-    const decoder = new TextDecoder()
-    let text = ''
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      text += decoder.decode(value, { stream: true })
-    }
-    text += decoder.decode()
-    return text
-  }
-
-  // Fallback: legacy JSON response shape ({ text }).
-  const data = await res.json()
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`)
   return data.text
 }
 
