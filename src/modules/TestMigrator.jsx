@@ -5,6 +5,8 @@ import SaveToProject from '../components/SaveToProject.jsx'
 
 const FRAMEWORKS = [
   'Katalon (Groovy, keyword-driven)',
+  'Guidewire Test (GT — GT-UI / GT-API)',
+  'Playwright (TypeScript)',
   'Selenium + Java (TestNG)',
   'Cucumber BDD (Gherkin + Java steps)'
 ]

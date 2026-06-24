@@ -155,7 +155,7 @@ export const CATALOG = [
     roi: [
       { metric: '70%+', label: 'faster manual-to-automation conversion' },
       { metric: 'Per case', label: 'gap + test-data analysis, not just a script' },
-      { metric: '3', label: 'frameworks: Katalon · Selenium · Cucumber' }
+      { metric: '5', label: 'frameworks: GT · Katalon · Playwright · Selenium · Cucumber' }
     ],
     taxonomy: {
       'AI pattern': 'Structured transformation + gap analysis',
@@ -165,7 +165,7 @@ export const CATALOG = [
       Persistence: 'Neon Postgres artifact'
     },
     config: [
-      { param: 'Framework', values: 'Katalon (Groovy) / Selenium + Java (TestNG) / Cucumber BDD' },
+      { param: 'Framework', values: 'Katalon (Groovy) / Guidewire GT (GT-UI · GT-API) / Playwright (TS) / Selenium + Java (TestNG) / Cucumber BDD' },
       { param: 'Primary product', values: 'PC / CC / BC / Jutro / Cross-suite' },
       { param: 'Manual test cases', values: 'Free text — single case or a whole pack at once' }
     ]

@@ -163,6 +163,8 @@ For EACH manual test case, do three things:
 
 1. CONVERT TO AUTOMATION — Generate a complete, runnable automated script in the requested framework:
    - "Katalon (Groovy, keyword-driven)": match THIS repo's Guidewire Flow Automation accelerator. Flows call reusable Groovy keyword libraries per product (PolicyCenterActions, ClaimCenterActions, BillingCenterActions, JutroActions), a shared GuidewireUI layer, LoginActions and a TestData generator. Reuse natural keyword names (createPersonAccount, startSubmission, addVehicle, quote, issuePolicy, startFNOL, submitClaim, setReserve, issuePayment, makePayment, viewInvoices, startQuoteAndBuy, payAndBind). Read URLs/credentials from GlobalVariable, never hard-code secrets. PC/CC/BC locators use defensive OOTB widget-id XPath; Jutro uses data-test attributes.
+   - "Guidewire Test (GT — GT-UI / GT-API)": use Guidewire's own GT automation framework, the standard for InsuranceSuite. Choose the right layer for the case: GT-UI (Gosu/Java page-and-flow driver model, e.g. extending a flow test, using ScreenAreas/UIElements helpers, RunLevel and server-side ServerTest hooks) for genuine UI journeys; GT-API (REST/Cloud API or Integration Gateway assertions) where the behaviour is service-level. Write it as a Gosu test class in GT style — annotate with the GT test base class, use the GT builder/fixture helpers to set up accounts/policies/claims server-side (e.g. via gw.api or test builders) rather than clicking through setup, drive screens through GT screen objects, and assert with GT/assertThat. Prefer server-side data setup over UI data entry — that is the GT idiom. Note in the script comments which GT base classes/builders the team must have available.
+   - "Playwright (TypeScript)": a Playwright @playwright/test spec in TypeScript. Use the Page Object Model (a page class per Guidewire screen), web-first locators (getByRole / getByLabel / getByTestId — data-test for Jutro, role+label fallbacks for PC/CC/BC OOTB widgets), auto-waiting assertions via expect(locator), and read baseURL/credentials from process.env or the Playwright config, never hard-coded. Include the test spec and the key page-object class(es).
    - "Selenium + Java (TestNG)": a self-contained @Test class with Page Object-style helpers and explicit waits.
    - "Cucumber BDD (Gherkin + Java steps)": a .feature file PLUS the matching step-definition skeleton.
    Make the manual steps map to concrete automation actions and add assertions for every expected result. Where the manual test omits a verifiable expected result, add a sensible assertion and FLAG it as a gap.
@@ -203,7 +205,7 @@ JSON shape:
       "automatedScript": {
         "framework": "<the requested framework>",
         "files": [
-          { "filename": "<suggested file/artifact name>", "language": "groovy|java|gherkin", "content": "<complete runnable script, escape newlines>" }
+          { "filename": "<suggested file/artifact name>", "language": "groovy|gosu|typescript|java|gherkin", "content": "<complete runnable script, escape newlines>" }
         ],
         "keywordAdditions": [
           { "library": "<e.g. PolicyCenterActions, or '-' if not Katalon>", "method": "<complete new @Keyword/helper method or '-'>" }
