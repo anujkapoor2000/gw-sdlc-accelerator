@@ -10,9 +10,45 @@ export async function callClaude({ system, prompt, maxTokens = 6000 }) {
       messages: [{ role: 'user', content: prompt }]
     })
   })
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`)
-  return data.text
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error || `Request failed (${res.status})`)
+  }
+
+  // Consume the Anthropic SSE stream and accumulate the full text.
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let text = ''
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue
+      const chunk = line.slice(6).trim()
+      if (chunk === '[DONE]') continue
+      try {
+        const event = JSON.parse(chunk)
+        if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+          text += event.delta.text
+        } else if (event.type === 'error') {
+          throw new Error(event.error?.message || 'Streaming error from Anthropic')
+        }
+      } catch (e) {
+        if (e.message?.includes('Streaming error')) throw e
+        // skip malformed SSE lines
+      }
+    }
+  }
+
+  return text
 }
 
 // Strip accidental markdown fences, then parse strict JSON.

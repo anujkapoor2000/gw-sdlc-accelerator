@@ -1,28 +1,41 @@
-// /api/chat.js — Vercel serverless proxy to the Anthropic Messages API.
+// /api/chat.js — Vercel Edge Runtime proxy to the Anthropic Messages API.
+// Edge Runtime passes the Anthropic SSE stream straight to the browser so the
+// connection stays alive for large generations and "Load failed" timeouts are gone.
 // The browser never sees the API key; it lives in the ANTHROPIC_API_KEY env var.
-//
-// maxDuration gives the function headroom; the Test Migrator keeps each request
-// small by converting one test case per call, so a plain buffered JSON response
-// returns well within the window. (A manual res.write() streaming variant was
-// tried and reverted — it failed at runtime on this deployment.)
 
-export const config = { maxDuration: 60 }
+export const config = { runtime: 'edge', maxDuration: 60 }
 
-export default async function handler(req, res) {
+export default async function handler(req) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'content-type': 'application/json' }
+    })
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
-    return res.status(500).json({
+    return new Response(JSON.stringify({
       error: 'ANTHROPIC_API_KEY is not configured. Add it in Vercel → Settings → Environment Variables.'
+    }), { status: 500, headers: { 'content-type': 'application/json' } })
+  }
+
+  let body
+  try {
+    body = await req.json()
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+      status: 400,
+      headers: { 'content-type': 'application/json' }
     })
   }
 
-  const { system, messages, max_tokens } = req.body || {}
+  const { system, messages, max_tokens } = body || {}
   if (!Array.isArray(messages) || messages.length === 0) {
-    return res.status(400).json({ error: 'messages array is required' })
+    return new Response(JSON.stringify({ error: 'messages array is required' }), {
+      status: 400,
+      headers: { 'content-type': 'application/json' }
+    })
   }
 
   try {
@@ -37,24 +50,30 @@ export default async function handler(req, res) {
         model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6',
         max_tokens: Math.min(max_tokens || 4096, 8192),
         system: system || undefined,
-        messages
+        messages,
+        stream: true
       })
     })
 
-    const data = await upstream.json()
     if (!upstream.ok) {
-      return res.status(upstream.status).json({
+      const data = await upstream.json().catch(() => ({}))
+      return new Response(JSON.stringify({
         error: data?.error?.message || 'Upstream Anthropic API error'
-      })
+      }), { status: upstream.status, headers: { 'content-type': 'application/json' } })
     }
 
-    const text = (data.content || [])
-      .filter((block) => block.type === 'text')
-      .map((block) => block.text)
-      .join('\n')
-
-    return res.status(200).json({ text, usage: data.usage })
+    // Pass the Anthropic SSE stream straight through to the browser.
+    return new Response(upstream.body, {
+      headers: {
+        'content-type': 'text/event-stream',
+        'cache-control': 'no-cache',
+        'x-accel-buffering': 'no'
+      }
+    })
   } catch (err) {
-    return res.status(500).json({ error: err.message || 'Proxy request failed' })
+    return new Response(JSON.stringify({ error: err.message || 'Proxy request failed' }), {
+      status: 500,
+      headers: { 'content-type': 'application/json' }
+    })
   }
 }
