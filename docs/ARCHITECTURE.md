@@ -181,7 +181,7 @@ notes the current state and the recommended change.
 | Output reliability | Replace the slice-the-braces parser with **schema validation** (e.g. Zod/JSON-Schema) and a one-shot **repair** retry when validation fails. Consider Anthropic **tool use / structured outputs** to force shape. |
 | Model governance | Pin exact model versions per environment; add a documented upgrade/eval process before bumping. Keep `ANTHROPIC_MODEL` per-env. |
 | Evals | Build a small **golden set** per module (inputs → expected-shape/quality assertions) and run it in CI on prompt or model changes. This is the single highest-leverage quality investment. |
-| Cost controls | Track `usage` (already returned) per request; attribute to user/tenant; alert on anomalies; set per-tenant budgets. |
+| Cost controls | **In place (client-side):** `api/chat.js` computes a per-request cost from `usage` and list prices (overridable via `ANTHROPIC_PRICE_INPUT`/`_OUTPUT`), and a global Usage Meter shows token counts + estimated cost for each request plus a session total. **Remaining gap:** persist usage server-side, attribute to user/tenant, alert on anomalies, and set per-tenant budgets — client-side metering is for visibility, not enforcement. |
 | Guardrails | Add refusal/timeout handling, max-loop caps (Defect Triage already has one), and content moderation where client data is involved. |
 | Observability | Log prompt id/version, model, token usage, latency, and outcome (not raw client content) to a tracing backend (e.g. OpenTelemetry → your APM, or an LLM-observability tool). |
 

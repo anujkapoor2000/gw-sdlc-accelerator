@@ -1,6 +1,28 @@
 // src/lib/api.js — browser-side helpers. All secrets stay on the server.
 
-export async function callClaude({ system, prompt, maxTokens = 6000 }) {
+// ---------- per-request usage / cost telemetry ----------
+// Every callClaude resolves with the prompt text (so existing callers are
+// untouched), but also publishes a usage+cost record. A global meter subscribes
+// to show token details and cost for each request; individual callers can also
+// pass an onUsage callback for inline display.
+const usageSubscribers = new Set()
+
+export function subscribeUsage(fn) {
+  usageSubscribers.add(fn)
+  return () => usageSubscribers.delete(fn)
+}
+
+function currentView() {
+  return window.location.hash.replace(/^#\/?/, '') || 'home'
+}
+
+function emitUsage(record) {
+  for (const fn of usageSubscribers) {
+    try { fn(record) } catch { /* a bad subscriber must not break the request */ }
+  }
+}
+
+export async function callClaude({ system, prompt, maxTokens = 6000, onUsage }) {
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -12,6 +34,18 @@ export async function callClaude({ system, prompt, maxTokens = 6000 }) {
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`)
+
+  if (data.usage || data.cost) {
+    const record = {
+      at: Date.now(),
+      view: currentView(),
+      model: data.model,
+      usage: data.usage || {},
+      cost: data.cost || null
+    }
+    if (onUsage) { try { onUsage(record) } catch { /* ignore */ } }
+    emitUsage(record)
+  }
   return data.text
 }
 

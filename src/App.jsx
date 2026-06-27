@@ -10,6 +10,7 @@ import TestMigrator from './modules/TestMigrator.jsx'
 import ReleaseNavigator from './modules/ReleaseNavigator.jsx'
 import DefectTriage from './modules/DefectTriage.jsx'
 import ProjectBar from './components/ProjectBar.jsx'
+import UsageMeter from './components/UsageMeter.jsx'
 
 const PHASES = [
   { label: 'Overview', items: [
@@ -174,6 +175,8 @@ export default function App() {
           <span>Powered by Claude Sonnet · NTT DATA Guidewire Practice</span>
         </div>
       </footer>
+
+      <UsageMeter />
     </div>
   )
 }
