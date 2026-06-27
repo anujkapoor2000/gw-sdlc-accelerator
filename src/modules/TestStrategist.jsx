@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { callClaude, parseModelJson } from '../lib/api.js'
 import { TEST_STRATEGIST_SYSTEM } from '../lib/prompts.js'
 import SaveToProject from '../components/SaveToProject.jsx'
+import { useRequestCost, RequestCost } from '../components/RequestCost.jsx'
 
 const INPUT_KINDS = ['User story + acceptance criteria', 'Gosu / integration code', 'Defect description']
 const TYPE_TAG = { 'GUnit': 'green', 'GT-API': '', 'GT-UI': 'amber', 'Manual': 'red' }
@@ -13,15 +14,16 @@ export default function TestStrategist({ project }) {
   const [error, setError] = useState('')
   const [result, setResult] = useState(null)
   const [typeFilter, setTypeFilter] = useState('all')
+  const reqCost = useRequestCost()
 
   async function run() {
-    setBusy(true); setError(''); setResult(null)
+    setBusy(true); setError(''); setResult(null); reqCost.reset()
     try {
       const prompt = `Input kind: ${kind}
 
 Material to derive tests from:
 ${input}`
-      const text = await callClaude({ system: TEST_STRATEGIST_SYSTEM, prompt, maxTokens: 7000 })
+      const text = await callClaude({ system: TEST_STRATEGIST_SYSTEM, prompt, maxTokens: 7000, onUsage: reqCost.onUsage })
       setResult(parseModelJson(text))
       setTypeFilter('all')
     } catch (e) {
@@ -94,6 +96,7 @@ ${input}`
                 content={result}
               />
             </div>
+            <RequestCost totals={reqCost.totals} />
           </div>
 
           <div className="chips" style={{ marginBottom: 14 }}>

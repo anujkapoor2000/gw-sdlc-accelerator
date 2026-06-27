@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { callClaude, parseModelJson } from '../lib/api.js'
 import { RELEASE_NAVIGATOR_SYSTEM } from '../lib/prompts.js'
 import SaveToProject from '../components/SaveToProject.jsx'
+import { useRequestCost, RequestCost } from '../components/RequestCost.jsx'
 
 const RELEASES = ['Innsbruck', 'Hakuba', 'Garmisch', 'Las Leñas', 'Palisades', 'Next (unannounced)']
 const PRODUCTS = ['PolicyCenter', 'ClaimCenter', 'BillingCenter']
@@ -21,6 +22,7 @@ export default function ReleaseNavigator({ project }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState(null)
+  const reqCost = useRequestCost()
 
   const total = CHECKLIST.reduce((n, g) => n + g.items.length, 0)
   const done = Object.values(checks).filter(Boolean).length
@@ -31,7 +33,7 @@ export default function ReleaseNavigator({ project }) {
   }
 
   async function run() {
-    setBusy(true); setError(''); setResult(null)
+    setBusy(true); setError(''); setResult(null); reqCost.reset()
     try {
       const prompt = `Target release: ${release}
 Products in scope: ${products.join(', ')}
@@ -39,7 +41,7 @@ CI/CD readiness self-assessment: ${pct}% (${done}/${total} practices in place)
 
 Customisation inventory:
 ${inventory}`
-      const text = await callClaude({ system: RELEASE_NAVIGATOR_SYSTEM, prompt, maxTokens: 6000 })
+      const text = await callClaude({ system: RELEASE_NAVIGATOR_SYSTEM, prompt, maxTokens: 6000, onUsage: reqCost.onUsage })
       setResult(parseModelJson(text))
     } catch (e) {
       setError(e.message)
@@ -134,6 +136,7 @@ ${inventory}`
                 content={{ readinessPct: pct, ...result }}
               />
             </div>
+            <RequestCost totals={reqCost.totals} />
           </div>
 
           {result.items?.map((it, i) => (

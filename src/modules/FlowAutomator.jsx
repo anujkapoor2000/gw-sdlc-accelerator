@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { callClaude, parseModelJson } from '../lib/api.js'
 import { FLOW_AUTOMATOR_SYSTEM } from '../lib/prompts.js'
 import SaveToProject from '../components/SaveToProject.jsx'
+import { useRequestCost, RequestCost } from '../components/RequestCost.jsx'
 
 const PRODUCTS = ['PolicyCenter', 'ClaimCenter', 'BillingCenter', 'Jutro']
 
@@ -56,6 +57,7 @@ export default function FlowAutomator({ project }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState(null)
+  const reqCost = useRequestCost()
 
   function onProduct(p) {
     setProduct(p)
@@ -63,14 +65,14 @@ export default function FlowAutomator({ project }) {
   }
 
   async function run() {
-    setBusy(true); setError(''); setResult(null)
+    setBusy(true); setError(''); setResult(null); reqCost.reset()
     try {
       const prompt = `Target product: ${product}
 Flow to automate: ${flow}
 
 Flow notes (optional — screen names, fields, seed data):
 ${notes || '(none provided — use sensible OOTB defaults for this flow)'}`
-      const text = await callClaude({ system: FLOW_AUTOMATOR_SYSTEM, prompt, maxTokens: 7000 })
+      const text = await callClaude({ system: FLOW_AUTOMATOR_SYSTEM, prompt, maxTokens: 7000, onUsage: reqCost.onUsage })
       setResult(parseModelJson(text))
     } catch (e) {
       setError(e.message)
@@ -146,6 +148,7 @@ ${notes || '(none provided — use sensible OOTB defaults for this flow)'}`
                 content={result}
               />
             </div>
+            <RequestCost totals={reqCost.totals} />
           </div>
 
           <div className="panel">

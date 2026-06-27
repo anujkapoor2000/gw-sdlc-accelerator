@@ -6,6 +6,7 @@ import {
   TEST_MIGRATOR_SYNTH_SYSTEM
 } from '../lib/prompts.js'
 import SaveToProject from '../components/SaveToProject.jsx'
+import { useRequestCost, RequestCost } from '../components/RequestCost.jsx'
 
 const FRAMEWORKS = [
   'Katalon (Groovy, keyword-driven)',
@@ -66,9 +67,10 @@ export default function TestMigrator({ project }) {
   const [cases, setCases] = useState([])      // filled progressively, one per case
   const [summary, setSummary] = useState(null) // suite-level synthesis
   const [verdictFilter, setVerdictFilter] = useState('all')
+  const reqCost = useRequestCost()
 
   async function run() {
-    setBusy(true); setError(''); setCases([]); setSummary(null); setVerdictFilter('all')
+    setBusy(true); setError(''); setCases([]); setSummary(null); setVerdictFilter('all'); reqCost.reset()
     try {
       // Step 1 — split the paste into individual cases (small, fast).
       setProgress('Reading and splitting test cases…')
@@ -77,7 +79,8 @@ export default function TestMigrator({ project }) {
         const splitText = await callClaude({
           system: TEST_MIGRATOR_SPLIT_SYSTEM,
           prompt: `Raw manual test case(s) pasted by the client:\n${input}`,
-          maxTokens: 3000
+          maxTokens: 3000,
+          onUsage: reqCost.onUsage
         })
         split = parseModelJson(splitText)
       } catch {
@@ -100,7 +103,8 @@ Case id to use: ${c.id || `MTC-${i + 1}`}
 
 Manual test case:
 ${c.raw || c.title}`,
-          maxTokens: 5000
+          maxTokens: 5000,
+          onUsage: reqCost.onUsage
         })
         const parsed = parseModelJson(caseText)
         collected.push(parsed)
@@ -126,7 +130,8 @@ ${c.raw || c.title}`,
 
 Per-case digest:
 ${JSON.stringify(digest, null, 2)}`,
-          maxTokens: 2000
+          maxTokens: 2000,
+          onUsage: reqCost.onUsage
         })
         synth = parseModelJson(synthText)
       } catch {
@@ -249,6 +254,7 @@ ${JSON.stringify(digest, null, 2)}`,
               content={saveContent}
             />
           </div>
+          <RequestCost totals={reqCost.totals} />
         </div>
       )}
 

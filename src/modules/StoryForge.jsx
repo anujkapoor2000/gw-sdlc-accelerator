@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { callClaude, parseModelJson } from '../lib/api.js'
 import { STORY_FORGE_SYSTEM } from '../lib/prompts.js'
 import SaveToProject from '../components/SaveToProject.jsx'
+import { useRequestCost, RequestCost } from '../components/RequestCost.jsx'
 
 const PRODUCTS = ['PolicyCenter', 'ClaimCenter', 'BillingCenter', 'Cross-suite']
 
@@ -11,15 +12,16 @@ export default function StoryForge({ project }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState(null)
+  const reqCost = useRequestCost()
 
   async function run() {
-    setBusy(true); setError(''); setResult(null)
+    setBusy(true); setError(''); setResult(null); reqCost.reset()
     try {
       const prompt = `Primary product: ${product}
 
 Raw requirements from the business:
 ${requirements}`
-      const text = await callClaude({ system: STORY_FORGE_SYSTEM, prompt, maxTokens: 7000 })
+      const text = await callClaude({ system: STORY_FORGE_SYSTEM, prompt, maxTokens: 7000, onUsage: reqCost.onUsage })
       setResult(parseModelJson(text))
     } catch (e) {
       setError(e.message)
@@ -80,6 +82,7 @@ ${requirements}`
                 content={result}
               />
             </div>
+            <RequestCost totals={reqCost.totals} />
           </div>
 
           {result.stories?.map((s) => (

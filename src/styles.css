@@ -383,6 +383,17 @@ textarea, input, select { font-family: inherit; font-size: 14px; }
   .usage-chip-total { display: none; }
   .usage-panel { width: calc(100vw - 32px); }
 }
+
+/* ---------- inline per-run cost badge (in module result panels) ---------- */
+.req-cost {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+  margin-top: 12px; padding: 8px 12px; border-radius: 8px;
+  background: #f6f8fb; border: 1px solid var(--line, #e5e9f0); font-size: 12.5px;
+}
+.req-cost-label { font-weight: 700; color: var(--ink, #0f172a); }
+.req-cost-toks { color: var(--slate, #64748b); font-family: var(--mono); }
+.req-cost-usd { color: var(--blue, #2563eb); font-weight: 700; font-family: var(--mono); }
+.req-cost-n { color: var(--slate, #64748b); }
 .gherkin {
   font-family: var(--mono); font-size: 12.5px; background: #f6f8fb;
   border-radius: 8px; padding: 10px 12px; margin: 6px 0; white-space: pre-wrap;

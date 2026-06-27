@@ -7,6 +7,7 @@ import {
   TRIAGE_PLANNER_SYSTEM
 } from '../lib/prompts.js'
 import SaveToProject from '../components/SaveToProject.jsx'
+import { useRequestCost, RequestCost } from '../components/RequestCost.jsx'
 
 const PRODUCTS = ['PolicyCenter', 'ClaimCenter', 'BillingCenter', 'Cross-suite', 'Unknown']
 const ENVIRONMENTS = ['Production', 'Pre-prod', 'UAT', 'SIT', 'Dev']
@@ -30,6 +31,7 @@ export default function DefectTriage({ project }) {
   const [error, setError] = useState('')
   const [finalCase, setFinalCase] = useState(null)
   const runId = useRef(0)
+  const reqCost = useRequestCost()
 
   function pushStep(step) {
     setSteps((s) => [...s, step])
@@ -44,7 +46,7 @@ export default function DefectTriage({ project }) {
     const idx = stepsCountRef.current++
     pushStep({ agent: agentKey, status: 'running', note, startedAt })
     try {
-      const text = await callClaude({ system, prompt, maxTokens: 5000 })
+      const text = await callClaude({ system, prompt, maxTokens: 5000, onUsage: reqCost.onUsage })
       const output = parseModelJson(text)
       completeStep(idx, { status: 'done', output, elapsed: ((Date.now() - startedAt) / 1000).toFixed(1) })
       return output
@@ -58,7 +60,7 @@ export default function DefectTriage({ project }) {
   async function run() {
     runId.current++
     stepsCountRef.current = 0
-    setSteps([]); setError(''); setFinalCase(null); setRunning(true)
+    setSteps([]); setError(''); setFinalCase(null); setRunning(true); reqCost.reset()
 
     const baseContext = `Product: ${product}
 Environment: ${env}
@@ -226,6 +228,7 @@ ${JSON.stringify(routing, null, 2)}`,
                 content={finalCase}
               />
             </div>
+            <RequestCost totals={reqCost.totals} />
           </div>
 
           <div className="panel">

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { callClaude, parseModelJson } from '../lib/api.js'
 import { CODE_REVIEW_SYSTEM } from '../lib/prompts.js'
 import SaveToProject from '../components/SaveToProject.jsx'
+import { useRequestCost, RequestCost } from '../components/RequestCost.jsx'
 
 const PRODUCTS = ['PolicyCenter', 'ClaimCenter', 'BillingCenter', 'Cross-suite']
 const CODE_TYPES = ['Gosu class / enhancement', 'PCF configuration', 'Integration / Cloud API', 'GX model', 'Batch process', 'Rules (assignment/validation)']
@@ -22,13 +23,14 @@ export default function CodeReview({ project }) {
   const [error, setError] = useState('')
   const [result, setResult] = useState(null)
   const [filter, setFilter] = useState('all')
+  const reqCost = useRequestCost()
 
   function toggleProfile(id) {
     setProfiles((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
   }
 
   async function run() {
-    setBusy(true); setError(''); setResult(null)
+    setBusy(true); setError(''); setResult(null); reqCost.reset()
     try {
       const numbered = code.split('\n').map((l, i) => `${i + 1}: ${l}`).join('\n')
       const prompt = `Product: ${product}
@@ -37,7 +39,7 @@ Review profiles selected: ${profiles.map((id) => PROFILES.find((p) => p.id === i
 
 Code to review (line-numbered):
 ${numbered}`
-      const text = await callClaude({ system: CODE_REVIEW_SYSTEM, prompt, maxTokens: 7000 })
+      const text = await callClaude({ system: CODE_REVIEW_SYSTEM, prompt, maxTokens: 7000, onUsage: reqCost.onUsage })
       setResult(parseModelJson(text))
       setFilter('all')
     } catch (e) {
@@ -134,6 +136,7 @@ ${numbered}`
                 content={result}
               />
             </div>
+            <RequestCost totals={reqCost.totals} />
           </div>
 
           <div className="chips" style={{ marginBottom: 14 }}>
