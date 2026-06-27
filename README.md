@@ -18,6 +18,9 @@ Every output can be saved to a project (Neon Postgres) and exported as JSON.
 
 ## Architecture
 
+> For a full architecture deep-dive and a phased plan to productionalise both the
+> web app and the Katalon project, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
 - **Frontend**: Vite + React 18, NTT DATA brand tokens, IBM Plex
 - **AI proxy**: `/api/chat.js` — Vercel serverless function calling the Anthropic Messages API. The API key never reaches the browser
 - **Persistence**: `/api/projects.js` — Neon Postgres via `@neondatabase/serverless`. Schema auto-creates on first request (`db/schema.sql` is reference only)
