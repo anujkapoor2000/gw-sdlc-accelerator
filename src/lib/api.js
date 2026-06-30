@@ -32,8 +32,9 @@ export async function callClaude({ system, prompt, maxTokens = 6000, onUsage }) 
       messages: [{ role: 'user', content: prompt }]
     })
   })
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`)
+  const data = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`)
+  if (!data) throw new Error('Empty response from server')
 
   if (data.usage || data.cost) {
     const record = {
@@ -61,9 +62,9 @@ export function parseModelJson(text) {
 // ---------- persistence ----------
 
 async function handle(res) {
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`)
-  return data
+  const data = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`)
+  return data ?? {}
 }
 
 export const db = {

@@ -77,6 +77,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'messages array is required' })
   }
 
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 55000)
+
   try {
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -90,8 +93,10 @@ export default async function handler(req, res) {
         max_tokens: Math.min(max_tokens || 4096, 8192),
         system: system || undefined,
         messages
-      })
+      }),
+      signal: controller.signal
     })
+    clearTimeout(timeoutId)
 
     const data = await upstream.json()
     if (!upstream.ok) {
@@ -113,6 +118,10 @@ export default async function handler(req, res) {
       cost: computeCost(model, data.usage)
     })
   } catch (err) {
+    clearTimeout(timeoutId)
+    if (err.name === 'AbortError') {
+      return res.status(504).json({ error: 'The request timed out — try shorter or simpler requirements.' })
+    }
     return res.status(500).json({ error: err.message || 'Proxy request failed' })
   }
 }
