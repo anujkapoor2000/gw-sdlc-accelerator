@@ -1,10 +1,8 @@
-// /api/chat.js — Vercel serverless proxy to the Anthropic Messages API.
-// The browser never sees the API key; it lives in the ANTHROPIC_API_KEY env var.
-//
-// Uses Anthropic's SSE streaming so tokens flow to the browser as they are
-// generated, keeping the connection alive and avoiding Vercel's hard timeout.
+// /api/chat.js — Vercel Edge Function proxy to the Anthropic Messages API.
+// Edge Runtime eliminates the 60-second serverless timeout: streaming
+// responses stay alive as long as tokens are flowing.
 
-export const config = { maxDuration: 60 }
+export const config = { runtime: 'edge' }
 
 // Published list prices, USD per 1,000,000 tokens (input / output). Keys match
 // model-id prefixes so a dated or aliased id still resolves. Update when
@@ -16,9 +14,8 @@ const PRICING = {
 }
 const DEFAULT_PRICE = { input: 3, output: 15 } // Sonnet-tier fallback
 
-// Cache-token multipliers relative to the base input price.
-const CACHE_WRITE_MULT = 1.25 // 5-minute TTL write premium
-const CACHE_READ_MULT = 0.1 // cache read discount
+const CACHE_WRITE_MULT = 1.25
+const CACHE_READ_MULT = 0.1
 
 function priceFor(model) {
   const envIn = parseFloat(process.env.ANTHROPIC_PRICE_INPUT)
@@ -30,49 +27,56 @@ function priceFor(model) {
   return { ...(key ? PRICING[key] : DEFAULT_PRICE), source: key ? 'list' : 'fallback' }
 }
 
-// Turn an Anthropic usage object into a per-request cost breakdown (USD).
 function computeCost(model, usage) {
   const price = priceFor(model)
   const perTokIn = price.input / 1e6
   const perTokOut = price.output / 1e6
-
   const inputTokens = usage?.input_tokens || 0
   const outputTokens = usage?.output_tokens || 0
   const cacheWriteTokens = usage?.cache_creation_input_tokens || 0
   const cacheReadTokens = usage?.cache_read_input_tokens || 0
-
-  const round = (n) => Math.round(n * 1e6) / 1e6 // 6dp — sub-cent precision
-  const inputUSD = inputTokens * perTokIn
-  const outputUSD = outputTokens * perTokOut
-  const cacheWriteUSD = cacheWriteTokens * perTokIn * CACHE_WRITE_MULT
-  const cacheReadUSD = cacheReadTokens * perTokIn * CACHE_READ_MULT
-
+  const round = (n) => Math.round(n * 1e6) / 1e6
   return {
     currency: 'USD',
-    inputUSD: round(inputUSD),
-    outputUSD: round(outputUSD),
-    cacheWriteUSD: round(cacheWriteUSD),
-    cacheReadUSD: round(cacheReadUSD),
-    totalUSD: round(inputUSD + outputUSD + cacheWriteUSD + cacheReadUSD),
+    inputUSD: round(inputTokens * perTokIn),
+    outputUSD: round(outputTokens * perTokOut),
+    cacheWriteUSD: round(cacheWriteTokens * perTokIn * CACHE_WRITE_MULT),
+    cacheReadUSD: round(cacheReadTokens * perTokIn * CACHE_READ_MULT),
+    totalUSD: round(
+      inputTokens * perTokIn +
+      outputTokens * perTokOut +
+      cacheWriteTokens * perTokIn * CACHE_WRITE_MULT +
+      cacheReadTokens * perTokIn * CACHE_READ_MULT
+    ),
     rates: { inputPerMTok: price.input, outputPerMTok: price.output, source: price.source }
   }
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
-  }
+function jsonRes(body, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' }
+  })
+}
+
+export default async function handler(req) {
+  if (req.method !== 'POST') return jsonRes({ error: 'Method not allowed' }, 405)
 
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
-    return res.status(500).json({
+    return jsonRes({
       error: 'ANTHROPIC_API_KEY is not configured. Add it in Vercel → Settings → Environment Variables.'
-    })
+    }, 500)
   }
 
-  const { system, messages, max_tokens } = req.body || {}
+  let body
+  try { body = await req.json() } catch {
+    return jsonRes({ error: 'Invalid JSON body' }, 400)
+  }
+
+  const { system, messages, max_tokens } = body || {}
   if (!Array.isArray(messages) || messages.length === 0) {
-    return res.status(400).json({ error: 'messages array is required' })
+    return jsonRes({ error: 'messages array is required' }, 400)
   }
 
   let upstream
@@ -93,66 +97,80 @@ export default async function handler(req, res) {
       })
     })
   } catch (err) {
-    return res.status(500).json({ error: err.message || 'Failed to connect to AI service' })
+    return jsonRes({ error: err.message || 'Failed to connect to AI service' }, 500)
   }
 
   if (!upstream.ok) {
     const errData = await upstream.json().catch(() => ({}))
-    return res.status(upstream.status).json({
-      error: errData?.error?.message || 'Upstream Anthropic API error'
-    })
+    return jsonRes(
+      { error: errData?.error?.message || 'Upstream Anthropic API error' },
+      upstream.status
+    )
   }
 
-  // Stream SSE tokens back to the browser as they arrive.
-  res.setHeader('Content-Type', 'text/event-stream')
-  res.setHeader('Cache-Control', 'no-cache')
-  res.setHeader('Connection', 'keep-alive')
+  const encoder = new TextEncoder()
 
-  const reader = upstream.body.getReader()
-  const decoder = new TextDecoder()
-  let buf = ''
-  let usage = {}
-  let model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'
-  let stopReason = null
-  let streamError = null
+  // Pipe Anthropic's SSE → our own SSE, forwarding text deltas and a final
+  // done event that carries usage/cost data.
+  const stream = new ReadableStream({
+    async start(controller) {
+      const write = (obj) =>
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`))
 
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
+      const reader = upstream.body.getReader()
+      const decoder = new TextDecoder()
+      let buf = ''
+      let usage = {}
+      let model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'
+      let stopReason = null
+      let streamError = null
 
-      buf += decoder.decode(value, { stream: true })
-      const lines = buf.split('\n')
-      buf = lines.pop() // keep any incomplete trailing line
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
 
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue
-        const raw = line.slice(6).trim()
-        if (!raw || raw === '[DONE]') continue
-        let evt
-        try { evt = JSON.parse(raw) } catch { continue }
+          buf += decoder.decode(value, { stream: true })
+          const lines = buf.split('\n')
+          buf = lines.pop()
 
-        if (evt.type === 'message_start') {
-          if (evt.message?.model) model = evt.message.model
-          if (evt.message?.usage) Object.assign(usage, evt.message.usage)
-        } else if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
-          res.write(`data: ${JSON.stringify({ t: evt.delta.text })}\n\n`)
-        } else if (evt.type === 'message_delta') {
-          if (evt.usage) Object.assign(usage, evt.usage)
-          if (evt.delta?.stop_reason) stopReason = evt.delta.stop_reason
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue
+            const raw = line.slice(6).trim()
+            if (!raw || raw === '[DONE]') continue
+            let evt
+            try { evt = JSON.parse(raw) } catch { continue }
+
+            if (evt.type === 'message_start') {
+              if (evt.message?.model) model = evt.message.model
+              if (evt.message?.usage) Object.assign(usage, evt.message.usage)
+            } else if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
+              write({ t: evt.delta.text })
+            } else if (evt.type === 'message_delta') {
+              if (evt.usage) Object.assign(usage, evt.usage)
+              if (evt.delta?.stop_reason) stopReason = evt.delta.stop_reason
+            }
+          }
         }
+      } catch (err) {
+        streamError = err.message || 'Stream interrupted'
+      } finally {
+        if (streamError) {
+          write({ error: streamError })
+        } else if (stopReason === 'max_tokens') {
+          write({ error: 'The response was cut off at the token limit. Try splitting your requirements into smaller batches.' })
+        }
+        write({ done: true, model, usage, cost: computeCost(model, usage), stopReason })
+        controller.close()
       }
     }
-  } catch (err) {
-    streamError = err.message || 'Stream interrupted'
-  } finally {
-    if (streamError) {
-      res.write(`data: ${JSON.stringify({ error: streamError })}\n\n`)
-    } else if (stopReason === 'max_tokens') {
-      res.write(`data: ${JSON.stringify({ error: 'The response was cut off because it exceeded the token limit. Try splitting your requirements into smaller batches.' })}\n\n`)
+  })
+
+  return new Response(stream, {
+    headers: {
+      'content-type': 'text/event-stream',
+      'cache-control': 'no-cache',
+      'x-accel-buffering': 'no'
     }
-    const cost = computeCost(model, usage)
-    res.write(`data: ${JSON.stringify({ done: true, model, usage, cost, stopReason })}\n\n`)
-    res.end()
-  }
+  })
 }
