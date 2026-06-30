@@ -103,7 +103,7 @@ Case id to use: ${c.id || `MTC-${i + 1}`}
 
 Manual test case:
 ${c.raw || c.title}`,
-          maxTokens: 5000,
+          maxTokens: 16000,
           onUsage: reqCost.onUsage
         })
         const parsed = parseModelJson(caseText)
