@@ -32,22 +32,51 @@ export async function callClaude({ system, prompt, maxTokens = 6000, onUsage }) 
       messages: [{ role: 'user', content: prompt }]
     })
   })
-  const data = await res.json().catch(() => null)
-  if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`)
-  if (!data) throw new Error('Empty response from server')
 
-  if (data.usage || data.cost) {
-    const record = {
-      at: Date.now(),
-      view: currentView(),
-      model: data.model,
-      usage: data.usage || {},
-      cost: data.cost || null
-    }
-    if (onUsage) { try { onUsage(record) } catch { /* ignore */ } }
-    emitUsage(record)
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw new Error(data?.error || `Request failed (${res.status})`)
   }
-  return data.text
+
+  // Read the SSE stream — tokens arrive as { t: "..." } events, with a final
+  // { done: true, model, usage, cost } event once generation completes.
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let fullText = ''
+  let buf = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buf += decoder.decode(value, { stream: true })
+    const lines = buf.split('\n')
+    buf = lines.pop()
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue
+      let evt
+      try { evt = JSON.parse(line.slice(6)) } catch { continue }
+
+      if (evt.error) throw new Error(evt.error)
+      if (evt.t) fullText += evt.t
+      if (evt.done) {
+        if (evt.usage || evt.cost) {
+          const record = {
+            at: Date.now(),
+            view: currentView(),
+            model: evt.model,
+            usage: evt.usage || {},
+            cost: evt.cost || null
+          }
+          if (onUsage) { try { onUsage(record) } catch { /* ignore */ } }
+          emitUsage(record)
+        }
+      }
+    }
+  }
+
+  return fullText
 }
 
 // Strip accidental markdown fences, then parse strict JSON.

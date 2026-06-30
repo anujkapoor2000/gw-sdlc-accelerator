@@ -1,10 +1,8 @@
 // /api/chat.js — Vercel serverless proxy to the Anthropic Messages API.
 // The browser never sees the API key; it lives in the ANTHROPIC_API_KEY env var.
 //
-// maxDuration gives the function headroom; the Test Migrator keeps each request
-// small by converting one test case per call, so a plain buffered JSON response
-// returns well within the window. (A manual res.write() streaming variant was
-// tried and reverted — it failed at runtime on this deployment.)
+// Uses Anthropic's SSE streaming so tokens flow to the browser as they are
+// generated, keeping the connection alive and avoiding Vercel's hard timeout.
 
 export const config = { maxDuration: 60 }
 
@@ -77,11 +75,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'messages array is required' })
   }
 
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 55000)
-
+  let upstream
   try {
-    const upstream = await fetch('https://api.anthropic.com/v1/messages', {
+    upstream = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -90,38 +86,65 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6',
-        max_tokens: Math.min(max_tokens || 4096, 8192),
+        max_tokens: Math.min(max_tokens || 4096, 16000),
         system: system || undefined,
-        messages
-      }),
-      signal: controller.signal
-    })
-    clearTimeout(timeoutId)
-
-    const data = await upstream.json()
-    if (!upstream.ok) {
-      return res.status(upstream.status).json({
-        error: data?.error?.message || 'Upstream Anthropic API error'
+        messages,
+        stream: true
       })
-    }
-
-    const text = (data.content || [])
-      .filter((block) => block.type === 'text')
-      .map((block) => block.text)
-      .join('\n')
-
-    const model = data.model || process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'
-    return res.status(200).json({
-      text,
-      model,
-      usage: data.usage,
-      cost: computeCost(model, data.usage)
     })
   } catch (err) {
-    clearTimeout(timeoutId)
-    if (err.name === 'AbortError') {
-      return res.status(504).json({ error: 'The request timed out — try shorter or simpler requirements.' })
+    return res.status(500).json({ error: err.message || 'Failed to connect to AI service' })
+  }
+
+  if (!upstream.ok) {
+    const errData = await upstream.json().catch(() => ({}))
+    return res.status(upstream.status).json({
+      error: errData?.error?.message || 'Upstream Anthropic API error'
+    })
+  }
+
+  // Stream SSE tokens back to the browser as they arrive.
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+
+  const reader = upstream.body.getReader()
+  const decoder = new TextDecoder()
+  let buf = ''
+  let usage = {}
+  let model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buf += decoder.decode(value, { stream: true })
+      const lines = buf.split('\n')
+      buf = lines.pop() // keep any incomplete trailing line
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
+        const raw = line.slice(6).trim()
+        if (!raw || raw === '[DONE]') continue
+        let evt
+        try { evt = JSON.parse(raw) } catch { continue }
+
+        if (evt.type === 'message_start') {
+          if (evt.message?.model) model = evt.message.model
+          if (evt.message?.usage) Object.assign(usage, evt.message.usage)
+        } else if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
+          res.write(`data: ${JSON.stringify({ t: evt.delta.text })}\n\n`)
+        } else if (evt.type === 'message_delta' && evt.usage) {
+          Object.assign(usage, evt.usage)
+        }
+      }
     }
-    return res.status(500).json({ error: err.message || 'Proxy request failed' })
+  } catch (err) {
+    res.write(`data: ${JSON.stringify({ error: err.message || 'Stream interrupted' })}\n\n`)
+  } finally {
+    const cost = computeCost(model, usage)
+    res.write(`data: ${JSON.stringify({ done: true, model, usage, cost })}\n\n`)
+    res.end()
   }
 }
