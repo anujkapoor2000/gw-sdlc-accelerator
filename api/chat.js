@@ -113,6 +113,8 @@ export default async function handler(req, res) {
   let buf = ''
   let usage = {}
   let model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'
+  let stopReason = null
+  let streamError = null
 
   try {
     while (true) {
@@ -135,16 +137,22 @@ export default async function handler(req, res) {
           if (evt.message?.usage) Object.assign(usage, evt.message.usage)
         } else if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
           res.write(`data: ${JSON.stringify({ t: evt.delta.text })}\n\n`)
-        } else if (evt.type === 'message_delta' && evt.usage) {
-          Object.assign(usage, evt.usage)
+        } else if (evt.type === 'message_delta') {
+          if (evt.usage) Object.assign(usage, evt.usage)
+          if (evt.delta?.stop_reason) stopReason = evt.delta.stop_reason
         }
       }
     }
   } catch (err) {
-    res.write(`data: ${JSON.stringify({ error: err.message || 'Stream interrupted' })}\n\n`)
+    streamError = err.message || 'Stream interrupted'
   } finally {
+    if (streamError) {
+      res.write(`data: ${JSON.stringify({ error: streamError })}\n\n`)
+    } else if (stopReason === 'max_tokens') {
+      res.write(`data: ${JSON.stringify({ error: 'The response was cut off because it exceeded the token limit. Try splitting your requirements into smaller batches.' })}\n\n`)
+    }
     const cost = computeCost(model, usage)
-    res.write(`data: ${JSON.stringify({ done: true, model, usage, cost })}\n\n`)
+    res.write(`data: ${JSON.stringify({ done: true, model, usage, cost, stopReason })}\n\n`)
     res.end()
   }
 }

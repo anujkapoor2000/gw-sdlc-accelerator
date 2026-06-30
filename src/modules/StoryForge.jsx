@@ -21,7 +21,7 @@ export default function StoryForge({ project }) {
 
 Raw requirements from the business:
 ${requirements}`
-      const text = await callClaude({ system: STORY_FORGE_SYSTEM, prompt, maxTokens: 7000, onUsage: reqCost.onUsage })
+      const text = await callClaude({ system: STORY_FORGE_SYSTEM, prompt, maxTokens: 16000, onUsage: reqCost.onUsage })
       setResult(parseModelJson(text))
     } catch (e) {
       setError(e.message)

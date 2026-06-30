@@ -46,7 +46,7 @@ export default function DefectTriage({ project }) {
     const idx = stepsCountRef.current++
     pushStep({ agent: agentKey, status: 'running', note, startedAt })
     try {
-      const text = await callClaude({ system, prompt, maxTokens: 5000, onUsage: reqCost.onUsage })
+      const text = await callClaude({ system, prompt, maxTokens: 12000, onUsage: reqCost.onUsage })
       const output = parseModelJson(text)
       completeStep(idx, { status: 'done', output, elapsed: ((Date.now() - startedAt) / 1000).toFixed(1) })
       return output

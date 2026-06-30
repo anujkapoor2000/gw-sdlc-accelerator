@@ -23,7 +23,7 @@ export default function TestStrategist({ project }) {
 
 Material to derive tests from:
 ${input}`
-      const text = await callClaude({ system: TEST_STRATEGIST_SYSTEM, prompt, maxTokens: 7000, onUsage: reqCost.onUsage })
+      const text = await callClaude({ system: TEST_STRATEGIST_SYSTEM, prompt, maxTokens: 16000, onUsage: reqCost.onUsage })
       setResult(parseModelJson(text))
       setTypeFilter('all')
     } catch (e) {

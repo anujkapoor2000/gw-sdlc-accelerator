@@ -72,7 +72,7 @@ Flow to automate: ${flow}
 
 Flow notes (optional — screen names, fields, seed data):
 ${notes || '(none provided — use sensible OOTB defaults for this flow)'}`
-      const text = await callClaude({ system: FLOW_AUTOMATOR_SYSTEM, prompt, maxTokens: 7000, onUsage: reqCost.onUsage })
+      const text = await callClaude({ system: FLOW_AUTOMATOR_SYSTEM, prompt, maxTokens: 16000, onUsage: reqCost.onUsage })
       setResult(parseModelJson(text))
     } catch (e) {
       setError(e.message)

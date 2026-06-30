@@ -41,7 +41,7 @@ CI/CD readiness self-assessment: ${pct}% (${done}/${total} practices in place)
 
 Customisation inventory:
 ${inventory}`
-      const text = await callClaude({ system: RELEASE_NAVIGATOR_SYSTEM, prompt, maxTokens: 6000, onUsage: reqCost.onUsage })
+      const text = await callClaude({ system: RELEASE_NAVIGATOR_SYSTEM, prompt, maxTokens: 16000, onUsage: reqCost.onUsage })
       setResult(parseModelJson(text))
     } catch (e) {
       setError(e.message)

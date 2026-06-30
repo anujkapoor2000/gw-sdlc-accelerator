@@ -39,7 +39,7 @@ Review profiles selected: ${profiles.map((id) => PROFILES.find((p) => p.id === i
 
 Code to review (line-numbered):
 ${numbered}`
-      const text = await callClaude({ system: CODE_REVIEW_SYSTEM, prompt, maxTokens: 7000, onUsage: reqCost.onUsage })
+      const text = await callClaude({ system: CODE_REVIEW_SYSTEM, prompt, maxTokens: 16000, onUsage: reqCost.onUsage })
       setResult(parseModelJson(text))
       setFilter('all')
     } catch (e) {

@@ -44,6 +44,7 @@ export async function callClaude({ system, prompt, maxTokens = 6000, onUsage }) 
   const decoder = new TextDecoder()
   let fullText = ''
   let buf = ''
+  let gotDone = false
 
   while (true) {
     const { done, value } = await reader.read()
@@ -61,6 +62,7 @@ export async function callClaude({ system, prompt, maxTokens = 6000, onUsage }) 
       if (evt.error) throw new Error(evt.error)
       if (evt.t) fullText += evt.t
       if (evt.done) {
+        gotDone = true
         if (evt.usage || evt.cost) {
           const record = {
             at: Date.now(),
@@ -74,6 +76,10 @@ export async function callClaude({ system, prompt, maxTokens = 6000, onUsage }) 
         }
       }
     }
+  }
+
+  if (!gotDone) {
+    throw new Error('Response was interrupted before completing. Please try again.')
   }
 
   return fullText
