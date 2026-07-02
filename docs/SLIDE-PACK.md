@@ -2,7 +2,21 @@
 
 McKinsey-style presentation explaining all accelerators in the GW SDLC Accelerator suite.
 
-## Viewing
+## Formats
+
+| Format | File | Best for |
+|---|---|---|
+| **PowerPoint** | [`accelerators-slide-pack.pptx`](accelerators-slide-pack.pptx) | Client decks, editing in PowerPoint/Keynote/Google Slides |
+| **HTML** | [`accelerators-slide-pack.html`](accelerators-slide-pack.html) | Browser viewing, quick PDF export |
+
+### Regenerate PPTX
+
+```bash
+pip install python-pptx
+python scripts/generate-slide-pack.py
+```
+
+## Viewing (HTML)
 
 Open [`accelerators-slide-pack.html`](accelerators-slide-pack.html) in any modern browser.
 
