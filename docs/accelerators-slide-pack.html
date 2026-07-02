@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GW SDLC Accelerator — McKinsey-Style Slide Pack</title>
+  <style>
+    :root {
+      --navy: #051c2c;
+      --navy-mid: #0d2d45;
+      --navy-light: #1a3d5c;
+      --teal: #00a9ce;
+      --teal-dark: #0088a8;
+      --gold: #c4a35a;
+      --white: #ffffff;
+      --gray-100: #f4f6f8;
+      --gray-200: #e8ecf0;
+      --gray-400: #8a9bab;
+      --gray-600: #5a6d7e;
+      --text: #1a2b3c;
+      --slide-w: 1280px;
+      --slide-h: 720px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      background: #0a1520;
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    .deck {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .slide {
+      display: none;
+      width: min(var(--slide-w), 96vw);
+      height: min(var(--slide-h), 90vh);
+      background: var(--white);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+      position: relative;
+      overflow: hidden;
+      flex-direction: column;
+    }
+
+    .slide.active { display: flex; }
+
+    /* ── Slide chrome ── */
+    .slide-header {
+      background: var(--navy);
+      color: var(--white);
+      padding: 28px 48px 24px;
+      flex-shrink: 0;
+    }
+
+    .slide-header .action-title {
+      font-size: 1.55rem;
+      font-weight: 600;
+      line-height: 1.3;
+      letter-spacing: -0.01em;
+    }
+
+    .slide-header .subtitle {
+      font-size: 0.82rem;
+      color: var(--gray-400);
+      margin-top: 6px;
+      font-weight: 400;
+    }
+
+    .slide-body {
+      flex: 1;
+      padding: 32px 48px 40px;
+      overflow: auto;
+    }
+
+    .slide-footer {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 48px;
+      font-size: 0.7rem;
+      color: var(--gray-400);
+      border-top: 1px solid var(--gray-200);
+      background: var(--white);
+    }
+
+    .slide-footer .brand { color: var(--navy); font-weight: 600; }
+    .slide-footer .confidential { font-style: italic; }
+
+    /* ── Title slide ── */
+    .slide.title-slide {
+      background: var(--navy);
+      color: var(--white);
+      justify-content: center;
+      align-items: flex-start;
+      padding: 80px 80px;
+    }
+
+    .slide.title-slide .eyebrow {
+      font-size: 0.75rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--teal);
+      margin-bottom: 24px;
+    }
+
+    .slide.title-slide h1 {
+      font-size: 2.6rem;
+      font-weight: 300;
+      line-height: 1.15;
+      max-width: 800px;
+      margin-bottom: 20px;
+    }
+
+    .slide.title-slide .tagline {
+      font-size: 1.15rem;
+      color: var(--gray-400);
+      max-width: 640px;
+      line-height: 1.5;
+      margin-bottom: 48px;
+    }
+
+    .slide.title-slide .meta {
+      font-size: 0.8rem;
+      color: var(--gray-400);
+      border-top: 1px solid var(--navy-light);
+      padding-top: 24px;
+      width: 100%;
+    }
+
+    .slide.title-slide .accent-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 6px;
+      background: linear-gradient(90deg, var(--teal), var(--gold));
+    }
+
+    /* ── Section divider ── */
+    .slide.section-slide {
+      background: var(--navy-mid);
+      color: var(--white);
+      justify-content: center;
+      align-items: flex-start;
+      padding: 80px;
+    }
+
+    .slide.section-slide .section-num {
+      font-size: 5rem;
+      font-weight: 200;
+      color: var(--teal);
+      line-height: 1;
+      margin-bottom: 16px;
+    }
+
+    .slide.section-slide h2 {
+      font-size: 2rem;
+      font-weight: 400;
+      margin-bottom: 12px;
+    }
+
+    .slide.section-slide p {
+      font-size: 1rem;
+      color: var(--gray-400);
+      max-width: 560px;
+      line-height: 1.5;
+    }
+
+    /* ── Content patterns ── */
+    .so-what {
+      background: var(--gray-100);
+      border-left: 4px solid var(--teal);
+      padding: 14px 18px;
+      margin-bottom: 24px;
+      font-size: 0.92rem;
+      line-height: 1.45;
+      color: var(--navy);
+      font-weight: 500;
+    }
+
+    .cols-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+    }
+
+    .cols-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    .cols-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    h3 {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--teal-dark);
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+
+    ul.bullets {
+      list-style: none;
+      font-size: 0.88rem;
+      line-height: 1.55;
+    }
+
+    ul.bullets li {
+      padding-left: 16px;
+      position: relative;
+      margin-bottom: 8px;
+    }
+
+    ul.bullets li::before {
+      content: "▸";
+      position: absolute;
+      left: 0;
+      color: var(--teal);
+      font-size: 0.75rem;
+      top: 2px;
+    }
+
+    .metric-card {
+      background: var(--gray-100);
+      border-top: 3px solid var(--teal);
+      padding: 16px;
+      text-align: center;
+    }
+
+    .metric-card .value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--navy);
+      line-height: 1.1;
+    }
+
+    .metric-card .label {
+      font-size: 0.72rem;
+      color: var(--gray-600);
+      margin-top: 6px;
+      line-height: 1.3;
+    }
+
+    .phase-pill {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 2px;
+      margin-bottom: 8px;
+    }
+
+    .phase-plan { background: #dbeafe; color: #1e40af; }
+    .phase-build { background: #ede9fe; color: #5b21b6; }
+    .phase-test { background: #d1fae5; color: #065f46; }
+    .phase-release { background: #fef3c7; color: #92400e; }
+    .phase-operate { background: #fee2e2; color: #991b1b; }
+
+    .accel-card {
+      border: 1px solid var(--gray-200);
+      padding: 16px;
+      height: 100%;
+    }
+
+    .accel-card h4 {
+      font-size: 0.95rem;
+      color: var(--navy);
+      margin-bottom: 6px;
+    }
+
+    .accel-card p {
+      font-size: 0.78rem;
+      color: var(--gray-600);
+      line-height: 1.4;
+    }
+
+    .accel-card .tagline-sm {
+      font-size: 0.72rem;
+      color: var(--teal-dark);
+      font-style: italic;
+      margin-bottom: 8px;
+    }
+
+    /* ── Lifecycle diagram ── */
+    .lifecycle {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      margin: 20px 0;
+    }
+
+    .lifecycle-phase {
+      flex: 1;
+      text-align: center;
+      position: relative;
+    }
+
+    .lifecycle-phase .phase-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--gray-400);
+      margin-bottom: 8px;
+    }
+
+    .lifecycle-phase .phase-box {
+      background: var(--navy);
+      color: var(--white);
+      padding: 12px 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .lifecycle-phase .modules {
+      margin-top: 10px;
+      font-size: 0.72rem;
+      color: var(--gray-600);
+      line-height: 1.4;
+      padding: 0 4px;
+    }
+
+    .lifecycle-phase:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      right: -10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--teal);
+      font-size: 1.2rem;
+      z-index: 2;
+    }
+
+    /* ── Table ── */
+    table.data {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+    }
+
+    table.data th {
+      background: var(--navy);
+      color: var(--white);
+      padding: 8px 12px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    table.data td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--gray-200);
+      vertical-align: top;
+      line-height: 1.4;
+    }
+
+    table.data tr:nth-child(even) td { background: var(--gray-100); }
+
+    table.data .highlight { font-weight: 700; color: var(--navy); }
+
+    /* ── Architecture diagram ── */
+    .arch-box {
+      border: 2px solid var(--navy);
+      padding: 16px;
+      text-align: center;
+      font-size: 0.82rem;
+      margin-bottom: 12px;
+    }
+
+    .arch-box.primary { background: var(--navy); color: var(--white); }
+    .arch-box.secondary { background: var(--gray-100); }
+    .arch-arrow { text-align: center; color: var(--teal); font-size: 1.2rem; margin: 4px 0; }
+
+    /* ── Agent pipeline ── */
+    .pipeline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 16px 0;
+      flex-wrap: wrap;
+    }
+
+    .pipeline .agent {
+      background: var(--navy);
+      color: var(--white);
+      padding: 10px 14px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: 2px;
+      text-align: center;
+      min-width: 100px;
+    }
+
+    .pipeline .arrow { color: var(--teal); font-size: 1.1rem; }
+    .pipeline .loop { color: var(--gold); font-size: 0.7rem; font-weight: 600; }
+
+    /* ── Roadmap ── */
+    .roadmap-step {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 14px;
+      align-items: flex-start;
+    }
+
+    .roadmap-step .step-num {
+      background: var(--teal);
+      color: var(--white);
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .roadmap-step .step-content h4 {
+      font-size: 0.88rem;
+      color: var(--navy);
+      margin-bottom: 4px;
+      text-transform: none;
+      letter-spacing: 0;
+      font-weight: 600;
+    }
+
+    .roadmap-step .step-content p {
+      font-size: 0.78rem;
+      color: var(--gray-600);
+      line-height: 1.4;
+    }
+
+    /* ── Navigation ── */
+    .nav-hint {
+      position: fixed;
+      bottom: 16px;
+      right: 24px;
+      font-size: 0.7rem;
+      color: rgba(255,255,255,0.4);
+      z-index: 100;
+    }
+
+    .progress {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      height: 3px;
+      background: var(--teal);
+      transition: width 0.2s;
+      z-index: 100;
+    }
+
+    @media print {
+      body { background: white; overflow: visible; }
+      .deck { display: block; height: auto; }
+      .slide {
+        display: flex !important;
+        page-break-after: always;
+        width: 100%;
+        height: 100vh;
+        box-shadow: none;
+        margin: 0;
+      }
+      .nav-hint, .progress { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+  <!-- SLIDE 1: Title -->
+  <div class="slide title-slide active">
+    <div class="eyebrow">NTT DATA Guidewire Practice</div>
+    <h1>GW SDLC Accelerator</h1>
+    <p class="tagline">AI-assisted lifecycle tooling for Guidewire InsuranceSuite — from requirements to release and operate</p>
+    <div class="meta">
+      <div>GuidewireAI · Internal Accelerator v1.0</div>
+      <div style="margin-top:4px">July 2026 · Confidential — For Internal &amp; Client Use</div>
+    </div>
+    <div class="accent-bar"></div>
+  </div>
+
+  <!-- SLIDE 2: Executive Summary -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="action-title">Seven AI accelerators span the full Guidewire delivery lifecycle — compressing time-to-value at every gate</div>
+      <div class="subtitle">Executive Summary</div>
+    </div>
+    <div class="slide-body">
+      <div class="so-what">The GW SDLC Accelerator packages proven AI patterns into a single web application, complemented by a ready-to-run Katalon automation library — giving delivery and AMS teams principal-level assistance from plan through operate.</div>
+      <div class="cols-2">
+        <div>
+          <h3>The Challenge</h3>
+          <ul class="bullets">
+            <li>Guidewire programmes stall on repetitive manual work: story writing, code review, test design, UI automation, upgrade planning, defect triage</li>
+            <li>Delivery centres lack consistent standards across geographies and seniority levels</li>
+            <li>UI test packs rot with every customisation and ski release — locator maintenance dominates automation cost</li>
+            <li>AMS teams face 24/7 defect volume with limited L2/L3 capacity</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Our Response</h3>
+          <ul class="bullets">
+            <li><strong>7 AI modules</strong> mapped to Plan → Build → Test → Release → Operate</li>
+            <li><strong>1 Katalon accelerator</strong> with 12 ready-to-run flows across PC, CC, BC &amp; Jutro</li>
+            <li>Powered by <strong>Claude Sonnet</strong> via secure server-side API proxy</li>
+            <li>All outputs <strong>persisted to Neon Postgres</strong> and exportable as JSON</li>
+            <li>Indicative ROI: <strong>30–70% effort reduction</strong> across targeted activities</li>
+          </ul>
+        </div>
+      </div>
+      <div class="cols-4" style="margin-top:24px">
+        <div class="metric-card"><div class="value">7</div><div class="label">AI accelerators live</div></div>
+        <div class="metric-card"><div class="value">12</div><div class="label">Katalon flows shipped</div></div>
+        <div class="metric-card"><div class="value">5</div><div class="label">SDLC phases covered</div></div>
+        <div class="metric-card"><div class="value">5</div><div class="label">Automation frameworks supported</div></div>
+      </div>
+    </div>
+    <div class="slide-footer"><span class="brand">GW SDLC Accelerator</span><span class="confidential">Confidential</span><span>2</span></div>
+  </div>
+
+  <!-- SLIDE 3: Lifecycle Map -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="action-title">Each SDLC phase has a dedicated accelerator — creating a connected value chain from backlog to production</div>
+      <div class="subtitle">Lifecycle Architecture</div>
+    </div>
+    <div class="slide-body">
+      <div class="lifecycle">
+        <div class="lifecycle-phase">
+          <div class="phase-label">Plan</div>
+          <div class="phase-box">Story Forge</div>
+          <div class="modules">Requirements → INVEST stories<br/>Gherkin ACs · GW touchpoints<br/>Fibonacci estimates</div>
+        </div>
+        <div class="lifecycle-phase">
+          <div class="phase-label">Build</div>
+          <div class="phase-box">Code Review Copilot</div>
+          <div class="modules">Gosu · PCF · Integration<br/>Severity-calibrated findings<br/>Upgrade-safety flags</div>
+        </div>
+        <div class="lifecycle-phase">
+          <div class="phase-label">Test</div>
+          <div class="phase-box" style="font-size:0.68rem">Test Strategist · Flow Automator · Test Migrator</div>
+          <div class="modules">Pyramid-balanced cases<br/>Katalon UI scripts<br/>Manual → automation</div>
+        </div>
+        <div class="lifecycle-phase">
+          <div class="phase-label">Release</div>
+          <div class="phase-box">Release Navigator</div>
+          <div class="modules">CI/CD maturity check<br/>Ski-release impact<br/>Pre-upgrade checklist</div>
+        </div>
+        <div class="lifecycle-phase">
+          <div class="phase-label">Operate</div>
+          <div class="phase-box">Defect Triage Agent</div>
+          <div class="modules">4-agent pipeline<br/>Self-correction loop<br/>24/7 first-pass triage</div>
+        </div>
+      </div>
+      <div class="cols-2" style="margin-top:28px">
+        <div>
+          <h3>Testing Accelerators (4)</h3>
+          <ul class="bullets">
+            <li><strong>Story Forge</strong> — eliminates the blank-page problem for BAs</li>
+            <li><strong>Test Strategist</strong> — keeps test design pace with development</li>
+            <li><strong>Flow Automator</strong> — scaffolds Katalon UI regression in minutes</li>
+            <li><strong>Test Migrator</strong> — converts legacy manual packs to automation</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Analysis Accelerators (3)</h3>
+          <ul class="bullets">
+            <li><strong>Code Review Copilot</strong> — principal-level review on every commit-sized chunk</li>
+            <li><strong>Release Navigator</strong> — evidence-based upgrade planning</li>
+            <li><strong>Defect Triage Agent</strong> — autonomous multi-agent production triage</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer"><span class="brand">GW SDLC Accelerator</span><span class="confidential">Confidential</span><span>3</span></div>
+  </div>
+
+  <!-- SLIDE 4: Section — Plan & Build -->
+  <div class="slide section-slide">
+    <div class="section-num">01</div>
+    <h2>Plan &amp; Build Accelerators</h2>
+    <p>Front-load quality at the requirements and code gates — where defects are cheapest to fix</p>
+  </div>
+
+  <!-- SLIDE 5: Story Forge -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="action-title">Story Forge converts raw requirements into sprint-ready, Guidewire-mapped user stories in minutes</div>
+      <div class="subtitle">Plan · Story Forge</div>
+    </div>
+    <div class="slide-body">
+      <div class="so-what">Requirements in, sprint-ready stories out — with Gherkin acceptance criteria, Guidewire touchpoints, and Fibonacci estimates pre-populated.</div>
+      <div class="cols-2">
+        <div>
+          <span class="phase-pill phase-plan">Plan Phase</span>
+          <h3>What It Does</h3>
+          <ul class="bullets">
+            <li>Ingests BRD extracts, workshop notes, emails — any free-text requirements</li>
+            <li>Produces INVEST-compliant user stories with Gherkin acceptance criteria</li>
+            <li>Maps each story to Guidewire constructs: entities, PCF, plugins, Cloud API</li>
+            <li>Generates Fibonacci point estimates with rationale and explicit dependencies</li>
+            <li>Surfaces open questions for the BA — negative-path ACs by default</li>
+            <li>Output is JSON, import-ready for Jira or Azure DevOps</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Indicative ROI</h3>
+          <div class="cols-2" style="gap:12px;margin-bottom:20px">
+            <div class="metric-card"><div class="value">40–60%</div><div class="label">Less effort per story written</div></div>
+            <div class="metric-card"><div class="value">~2 days</div><div class="label">Saved per sprint of backlog grooming</div></div>
+          </div>
+          <h3>Configuration</h3>
+          <table class="data">
+            <tr><td class="highlight">Primary product</td><td>PolicyCenter · ClaimCenter · BillingCenter · Cross-suite</td></tr>
+            <tr><td class="highlight">Input</td><td>Free-text requirements (any length up to model context)</td></tr>
+            <tr><td class="highlight">AI pattern</td><td>Structured generation (single-pass)</td></tr>
+            <tr><td class="highlight">Output</td><td>Epic + stories JSON → saved to Neon Postgres</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer"><span class="brand">GW SDLC Accelerator</span><span class="confidential">Confidential</span><span>5</span></div>
+  </div>
+
+  <!-- SLIDE 6: Code Review -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="action-title">Code Review Copilot delivers principal-level Guidewire review on every commit — catching defects at desk-check cost</div>
+      <div class="subtitle">Build · Code Review Copilot</div>
+    </div>
+    <div class="slide-body">
+      <div class="so-what">Defects caught at review cost 10× less than at UAT — and consume zero reviewer calendar time.</div>
+      <div class="cols-2">
+        <div>
+          <span class="phase-pill phase-build">Build Phase</span>
+          <h3>What It Does</h3>
+          <ul class="bullets">
+            <li>Reviews Gosu, PCF, integration, GX, batch and rules code</li>
+            <li>Returns severity-calibrated findings: critical → info, with line-level locations</li>
+            <li>Concrete fixes naming the Guidewire construct to use</li>
+            <li>Upgrade-safety category flags deprecated APIs and internal.* packages</li>
+            <li>Multi-select review profiles: Standards · Performance · Upgrade/Cloud safety · Security</li>
+            <li>Overall code-health score plus quick-win recommendations</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Indicative ROI</h3>
+          <div class="cols-3" style="gap:12px;margin-bottom:20px">
+            <div class="metric-card"><div class="value">30%</div><div class="label">Fewer human review cycles</div></div>
+            <div class="metric-card"><div class="value">10×</div><div class="label">Cheaper fix at review vs UAT</div></div>
+            <div class="metric-card"><div class="value">0</div><div class="label">Reviewer calendar time</div></div>
+          </div>
+          <h3>Finding Categories</h3>
+          <table class="data">
+            <tr><th>Category</th><th>Focus</th></tr>
+            <tr><td class="highlight">Correctness</td><td>Logic errors, null handling, edge cases</td></tr>
+            <tr><td class="highlight">Performance</td><td>Query patterns, caching, batch efficiency</td></tr>
+            <tr><td class="highlight">Standards</td><td>Naming, structure, Guidewire conventions</td></tr>
+            <tr><td class="highlight">Security</td><td>Injection, auth, data exposure</td></tr>
+            <tr><td class="highlight">Upgrade-safety</td><td>OOTB overrides, deprecated APIs, Cloud readiness</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer"><span class="brand">GW SDLC Accelerator</span><span class="confidential">Confidential</span><span>6</span></div>
+  </div>
+
+  <!-- SLIDE 7: Section — Test -->
+  <div class="slide section-slide">
+    <div class="section-num">02</div>
+    <h2>Test Accelerators</h2>
+    <p>Three complementary tools cover test design, UI automation generation, and legacy manual-to-automation conversion</p>
+  </div>
+
+  <!-- SLIDE 8: Test Strategist -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="action-title">Test Strategist enforces pyramid discipline — assigning the right harness to every test case</div>
+      <div class="subtitle">Test · Test Strategist</div>
+    </div>
+    <div class="slide-body">
+      <div class="so-what">Test design keeps pace with development instead of lagging a sprint — with harness selection enforced and test data staged upfront.</div>
+      <div class="cols-2">
+        <div>
+          <span class="phase-pill phase-test">Test Phase</span>
+          <h3>What It Does</h3>
+          <ul class="bullets">
+            <li>Derives executable test cases from stories, code, or defect descriptions</li>
+            <li>Selects harness per case: <strong>GUnit</strong> (logic) · <strong>GT-API</strong> (Cloud API/IG) · <strong>GT-UI</strong> (genuine UI journeys) · <strong>Manual</strong></li>
+            <li>Maintains test pyramid health — no GT-UI tests for logic GUnit should own</li>
+            <li>Staged test data list eliminates the #1 cause of blocked test execution</li>
+            <li>Each case names the acceptance criterion it covers — full traceability</li>
+            <li>Harness-specific automation notes for downstream tooling</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Harness Selection Logic</h3>
+          <table class="data" style="margin-bottom:20px">
+            <tr><th>Harness</th><th>When Used</th></tr>
+            <tr><td class="highlight">GUnit</td><td>Business logic, rules, calculations, entity operations</td></tr>
+            <tr><td class="highlight">GT-API</td><td>Cloud API contracts, integration gateways, REST/SOAP</td></tr>
+            <tr><td class="highlight">GT-UI</td><td>Genuine end-user journeys requiring screen interaction</td></tr>
+            <tr><td class="highlight">Manual</td><td>Exploratory, visual, or environment-dependent scenarios</td></tr>
+          </table>
+          <h3>Indicative ROI</h3>
+          <div class="cols-3" style="gap:12px">
+            <div class="metric-card"><div class="value">50%</div><div class="label">Faster test-case design</div></div>
+            <div class="metric-card"><div class="value">↑</div><div class="label">Automation ratio via pyramid discipline</div></div>
+            <div class="metric-card"><div class="value">↓</div><div class="label">Blocked tests from missing data</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer"><span class="brand">GW SDLC Accelerator</span><span class="confidential">Confidential</span><span>8</span></div>
+  </div>
+
+  <!-- SLIDE 9: Flow Automator -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="action-title">Flow Automator scaffolds keyword-driven Katalon UI automation for common Guidewire journeys in minutes, not days</div>
+      <div class="subtitle">Test · Flow Automator</div>
+    </div>
+    <div class="slide-body">
+      <div class="so-what">Regression UI packs scaffolded in minutes — with locators centralised in one keyword library per product for release resilience.</div>
+      <div class="cols-2">
+        <div>
+          <span class="phase-pill phase-test">Test Phase</span>
+          <h3>Supported Flows</h3>
+          <table class="data">
+            <tr><th>Product</th><th>Flows</th></tr>
+            <tr><td class="highlight">PolicyCenter</td><td>Submission → bind · Mid-term change · Cancellation · Renewal</td></tr>
+            <tr><td class="highlight">ClaimCenter</td><td>FNOL · Reserve + payment · Assign + close</td></tr>
+            <tr><td class="highlight">BillingCenter</td><td>Direct-bill payment · Invoices · Producer + disbursement</td></tr>
+            <tr><td class="highlight">Jutro</td><td>Digital quote-and-buy · Self-service FNOL</td></tr>
+          </table>
+          <h3 style="margin-top:16px">Design Principles</h3>
+          <ul class="bullets">
+            <li>Keyword-driven: business actions in reusable libraries, locators in one place</li>
+            <li>Defensive XPath/CSS locators with label fallbacks</li>
+            <li>Environment profiles for URL/credential switching — no code changes</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Indicative ROI</h3>
+          <div class="cols-3" style="gap:12px;margin-bottom:20px">
+            <div class="metric-card"><div class="value">60%+</div><div class="label">Faster first-draft UI automation</div></div>
+            <div class="metric-card"><div class="value">12</div><div class="label">Ready-to-run flows in /katalon</div></div>
+            <div class="metric-card"><div class="value">1</div><div class="label">Place to fix a customised locator</div></div>
+          </div>
+          <h3>Output</h3>
+          <ul class="bullets">
+            <li>Katalon Groovy test case matching the bundled accelerator style</li>
+            <li>Keyword additions JSON for library extension</li>
+            <li>Self-seeding happy paths flagged vs data-dependent flows</li>
+            <li>Uses <code>GlobalVariable</code> for URLs and credentials</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer"><span class="brand">GW SDLC Accelerator</span><span class="confidential">Confidential</span><span>9</span></div>
+  </div>
+
+  <!-- SLIDE 10: Test Migrator -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="action-title">Test Migrator converts legacy manual regression packs into runnable automation — with honest gap analysis per case</div>
+      <div class="subtitle">Test · Test Migrator</div>
+    </div>
+    <div class="slide-body">
+      <div class="so-what">A legacy manual regression pack becomes automation drafts in minutes — with per-case verdicts on automate, fix-then-automate, or keep manual.</div>
+      <div class="cols-2">
+        <div>
+          <span class="phase-pill phase-test">Test Phase</span>
+          <h3>What It Does</h3>
+          <ul class="bullets">
+            <li>Ingests manual test cases pasted from Excel, ALM, Zephyr, qTest — single or bulk</li>
+            <li>Converts each into a runnable automated script in the chosen framework</li>
+            <li>Surfaces gaps that would block automation: missing preconditions, ambiguous steps, no verification point</li>
+            <li>Itemises exact test data per script with generate / stage / existing-record strategy</li>
+            <li>Honest automation verdict per case — not every manual test should be automated</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Supported Frameworks (5)</h3>
+          <table class="data" style="margin-bottom:20px">
+            <tr><th>Framework</th><th>Output</th></tr>
+            <tr><td class="highlight">Katalon (Groovy)</td><td>Keyword-driven, matches /katalon accelerator style</td></tr>
+            <tr><td class="highlight">Guidewire GT</td><td>GT-UI and GT-API harness scripts</td></tr>
+            <tr><td class="highlight">Playwright</td><td>TypeScript test files</td></tr>
+            <tr><td class="highlight">Selenium + Java</td><td>TestNG test classes</td></tr>
+            <tr><td class="highlight">Cucumber BDD</td><td>Feature files with step definitions</td></tr>
+          </table>
+          <h3>Indicative ROI</h3>
+          <div class="cols-2" style="gap:12px">
+            <div class="metric-card"><div class="value">70%+</div><div class="label">Faster manual-to-automation conversion</div></div>
+            <div class="metric-card"><div class="value">Per case</div><div class="label">Gap + test-data analysis, not just a script</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer"><span class="brand">GW SDLC Accelerator</span><span class="confidential">Confidential</span><span>10</span></div>
+  </div>
+
+  <!-- SLIDE 11: Section — Analysis -->
+  <div class="slide section-slide">
+    <div class="section-num">03</div>
+    <h2>Analysis Accelerators</h2>
+    <p>Evidence-based decision support for release readiness and production defect management</p>
+  </div>
+
+  <!-- SLIDE 12: Release Navigator -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="action-title">Release Navigator reveals what the next ski release does to your customisations — before it lands</div>
+      <div class="subtitle">Release · Release Navigator</div>
+    </div>
+    <div class="slide-body">
+      <div class="so-what">Upgrade planning starts from evidence, not guesswork — with effort bands that support AMS commercial conversations weeks earlier.</div>
+      <div class="cols-2">
+        <div>
+          <span class="phase-pill phase-release">Release Phase</span>
+          <h3>Two Lenses on Readiness</h3>
+          <ul class="bullets">
+            <li><strong>CI/CD Maturity Self-Check</strong> — 16 practices across 4 groups with live scoring</li>
+            <li><strong>AI Impact Analysis</strong> — customisation inventory assessed against target ski release</li>
+            <li>Per-area impact rating, remediation actions, and regression focus</li>
+            <li>Effort band (S/M/L/XL) supports commercial scoping</li>
+            <li>Pre-upgrade checklist doubles as onboarding assessment for new AMS accounts</li>
+          </ul>
+          <h3 style="margin-top:16px">Target Releases</h3>
+          <p style="font-size:0.82rem;color:var(--gray-600)">Innsbruck · Hakuba · Garmisch · Las Leñas · Palisades · Next</p>
+        </div>
+        <div>
+          <h3>CI/CD Maturity Groups</h3>
+          <table class="data" style="margin-bottom:20px">
+            <tr><th>Group</th><th>Practices</th></tr>
+            <tr><td class="highlight">Source Control</td><td>Branching, PR reviews, merge policies</td></tr>
+            <tr><td class="highlight">Build &amp; Deploy</td><td>CI pipelines, artefact management, env promotion</td></tr>
+            <tr><td class="highlight">Testing</td><td>Automation coverage, regression gates, data management</td></tr>
+            <tr><td class="highlight">Operations</td><td>Monitoring, rollback, incident response</td></tr>
+          </table>
+          <h3>Indicative ROI</h3>
+          <div class="cols-3" style="gap:12px">
+            <div class="metric-card"><div class="value">20–30%</div><div class="label">Less upgrade regression effort</div></div>
+            <div class="metric-card"><div class="value">Weeks</div><div class="label">Earlier remediation visibility</div></div>
+            <div class="metric-card"><div class="value">2-in-1</div><div class="label">Maturity + impact analysis</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer"><span class="brand">GW SDLC Accelerator</span><span class="confidential">Confidential</span><span>12</span></div>
+  </div>
+
+  <!-- SLIDE 13: Defect Triage -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="action-title">Defect Triage Agent runs a four-agent pipeline with self-correction — delivering L2/L3 triage in minutes, 24/7</div>
+      <div class="subtitle">Operate · Defect Triage Agent (Agentic)</div>
+    </div>
+    <div class="slide-body">
+      <div class="so-what">The only agentic module in the suite — a demonstrable multi-agent capability with confidence-gated self-correction for client showcases.</div>
+      <div class="pipeline">
+        <div class="agent">Intake Agent<br/><span style="font-weight:400;font-size:0.65rem">Structures ticket</span></div>
+        <span class="arrow">→</span>
+        <div class="agent">Investigator<br/><span style="font-weight:400;font-size:0.65rem">Root-cause hypotheses</span></div>
+        <span class="arrow">→</span>
+        <div class="agent">Router<br/><span style="font-weight:400;font-size:0.65rem">Team + priority</span></div>
+        <span class="loop">⟲ if confidence &lt; 65%</span>
+        <span class="arrow">→</span>
+        <div class="agent">Fix Planner<br/><span style="font-weight:400;font-size:0.65rem">Workaround + fix + regression</span></div>
+      </div>
+      <div class="cols-2" style="margin-top:20px">
+        <div>
+          <span class="phase-pill phase-operate">Operate Phase</span>
+          <h3>Agent Responsibilities</h3>
+          <ul class="bullets">
+            <li><strong>Intake</strong> — structures raw defect report into structured case file</li>
+            <li><strong>Investigator</strong> — ranked root-cause hypotheses with confidence scores</li>
+            <li><strong>Router</strong> — assigns team, priority (P1–P4), ticket type; loops back if confidence &lt; 65% (max 2 passes)</li>
+            <li><strong>Fix Planner</strong> — workaround, permanent fix, regression coverage, prevention step</li>
+            <li>Every handoff renders on a live timeline with inspectable agent output</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Indicative ROI</h3>
+          <div class="cols-3" style="gap:12px;margin-bottom:20px">
+            <div class="metric-card"><div class="value">35–50%</div><div class="label">Faster mean-time-to-triage</div></div>
+            <div class="metric-card"><div class="value">24/7</div><div class="label">First-pass triage coverage</div></div>
+            <div class="metric-card"><div class="value">↓</div><div class="label">Misrouting &amp; ticket ping-pong</div></div>
+          </div>
+          <h3>Configuration</h3>
+          <table class="data">
+            <tr><td class="highlight">Loop threshold</td><td>Confidence &lt; 65% triggers re-investigation</td></tr>
+            <tr><td class="highlight">Loop budget</td><td>Max 2 extra passes</td></tr>
+            <tr><td class="highlight">Evidence</td><td>Optional logs / stack trace / code raises confidence</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer"><span class="brand">GW SDLC Accelerator</span><span class="confidential">Confidential</span><span>13</span></div>
+  </div>
+
+  <!-- SLIDE 14: Katalon Accelerator -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="action-title">The Katalon Flow Automation accelerator ships 12 ready-to-run flows — the physical execution layer behind Flow Automator</div>
+      <div class="subtitle">Companion Asset · Guidewire Flow Automation (Katalon)</div>
+    </div>
+    <div class="slide-body">
+      <div class="so-what">UI test packs rot fast — this accelerator front-loads locators and boilerplate so teams focus on flows, not maintenance.</div>
+      <table class="data" style="margin-bottom:20px">
+        <tr><th>App</th><th>Test Case</th><th>Flow</th></tr>
+        <tr><td class="highlight">PolicyCenter</td><td>PC01–PC04</td><td>PA submission → bind · Mid-term change · Cancellation · Renewal</td></tr>
+        <tr><td class="highlight">ClaimCenter</td><td>CC01–CC03</td><td>FNOL · Reserve + payment · Assign + close</td></tr>
+        <tr><td class="highlight">BillingCenter</td><td>BC01–BC03</td><td>Direct-bill payment · Invoices · Producer + disbursement</td></tr>
+        <tr><td class="highlight">Jutro</td><td>JU01–JU02</td><td>Digital quote-and-buy · Self-service FNOL</td></tr>
+      </table>
+      <div class="cols-3">
+        <div>
+          <h3>Keyword Libraries</h3>
+          <ul class="bullets">
+            <li>GuidewireUI — shared interaction layer</li>
+            <li>LoginActions — auth for PC/CC/BC + Jutro</li>
+            <li>PolicyCenterActions · ClaimCenterActions</li>
+            <li>BillingCenterActions · JutroActions</li>
+            <li>TestData — seed data helpers</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Test Suites</h3>
+          <ul class="bullets">
+            <li>PC Regression · CC Regression</li>
+            <li>BC Regression · Jutro Digital Regression</li>
+            <li>Smoke — All Products (one headline flow per app)</li>
+            <li>Profiles: default.glbl (dev) · qa.glbl (QA)</li>
+          </ul>
+        </div>
+        <div>
+          <h3>CI Integration</h3>
+          <ul class="bullets">
+            <li>Headless execution via katalonc (Runtime Engine)</li>
+            <li>Katalon Studio 8.x+ — open /katalon directly</li>
+            <li>Defensive XPath locators: one-line fix per customisation</li>
+            <li>Timestamped idempotent test data</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer"><span class="brand">GW SDLC Accelerator</span><span class="confidential">Confidential</span><span>14</span></div>
+  </div>
+
+  <!-- SLIDE 15: Architecture -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="action-title">A secure, serverless architecture keeps API keys server-side while persisting all outputs to project storage</div>
+      <div class="subtitle">Technical Architecture</div>
+    </div>
+    <div class="slide-body">
+      <div class="cols-2">
+        <div>
+          <h3>AI Web Application</h3>
+          <div class="arch-box primary">React 18 + Vite Frontend<br/><span style="font-size:0.72rem;opacity:0.8">7 module pages · NTT DATA brand · IBM Plex</span></div>
+          <div class="arch-arrow">↓</div>
+          <div class="arch-box secondary">Vercel Serverless API<br/><span style="font-size:0.72rem">/api/chat.js · /api/projects.js</span></div>
+          <div class="arch-arrow">↓</div>
+          <div class="cols-2" style="gap:12px">
+            <div class="arch-box secondary" style="margin:0">Anthropic API<br/><span style="font-size:0.68rem">Claude Sonnet 4.6</span></div>
+            <div class="arch-box secondary" style="margin:0">Neon Postgres<br/><span style="font-size:0.68rem">Projects + artifacts</span></div>
+          </div>
+        </div>
+        <div>
+          <h3>Katalon Execution Track</h3>
+          <div class="arch-box primary">Katalon Studio Project (/katalon)<br/><span style="font-size:0.72rem;opacity:0.8">Keyword libs → Test cases → Suites → Profiles</span></div>
+          <div class="arch-arrow">↓</div>
+          <div class="arch-box secondary">katalonc (Runtime Engine)<br/><span style="font-size:0.72rem">Headless CI execution</span></div>
+          <h3 style="margin-top:20px">Security Posture</h3>
+          <ul class="bullets">
+            <li><code>ANTHROPIC_API_KEY</code> — server-side only, never reaches browser</li>
+            <li><code>DATABASE_URL</code> — Neon pooled connection, plain env var on Vercel</li>
+            <li>All module outputs saved to project with JSON export</li>
+            <li>SPA routing via vercel.json rewrites</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer"><span class="brand">GW SDLC Accelerator</span><span class="confidential">Confidential</span><span>15</span></div>
+  </div>
+
+  <!-- SLIDE 16: ROI Summary -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="action-title">Indicative ROI ranges from 30% to 70% effort reduction — concentrated at the highest-volume manual activities</div>
+      <div class="subtitle">Value at a Glance</div>
+    </div>
+    <div class="slide-body">
+      <table class="data">
+        <tr>
+          <th>Accelerator</th>
+          <th>Phase</th>
+          <th>Primary Metric</th>
+          <th>Secondary Metric</th>
+          <th>Key Benefit</th>
+        </tr>
+        <tr>
+          <td class="highlight">Story Forge</td><td>Plan</td><td>40–60% less effort per story</td><td>~2 days saved per grooming sprint</td><td>Fewer AC gaps reaching SIT/UAT</td>
+        </tr>
+        <tr>
+          <td class="highlight">Code Review Copilot</td><td>Build</td><td>30% fewer review cycles</td><td>10× cheaper fix at review vs UAT</td><td>Zero reviewer calendar time</td>
+        </tr>
+        <tr>
+          <td class="highlight">Test Strategist</td><td>Test</td><td>50% faster test-case design</td><td>Higher automation ratio</td><td>Fewer blocked tests from missing data</td>
+        </tr>
+        <tr>
+          <td class="highlight">Flow Automator</td><td>Test</td><td>60%+ faster UI automation</td><td>12 ready-to-run Katalon flows</td><td>One place to fix customised locators</td>
+        </tr>
+        <tr>
+          <td class="highlight">Test Migrator</td><td>Test</td><td>70%+ faster manual conversion</td><td>5 frameworks supported</td><td>Per-case gap + test-data analysis</td>
+        </tr>
+        <tr>
+          <td class="highlight">Release Navigator</td><td>Release</td><td>20–30% less regression effort</td><td>Weeks earlier remediation visibility</td><td>2-in-1 maturity + impact analysis</td>
+        </tr>
+        <tr>
+          <td class="highlight">Defect Triage Agent</td><td>Operate</td><td>35–50% faster MTTT</td><td>24/7 first-pass coverage</td><td>Lower misrouting and ping-pong</td>
+        </tr>
+      </table>
+      <p style="font-size:0.72rem;color:var(--gray-400);margin-top:12px;font-style:italic">All ROI figures are indicative benchmarks from the NTT DATA Guidewire Practice — update in src/lib/catalog.js as firm evidence accumulates.</p>
+    </div>
+    <div class="slide-footer"><span class="brand">GW SDLC Accelerator</span><span class="confidential">Confidential</span><span>16</span></div>
+  </div>
+
+  <!-- SLIDE 17: Adoption Path -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="action-title">A phased adoption path moves teams from showcase demos to embedded workflow integration</div>
+      <div class="subtitle">Recommended Adoption Path</div>
+    </div>
+    <div class="slide-body">
+      <div class="roadmap-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h4>Discover &amp; Demo (Week 1)</h4>
+          <p>Walk client stakeholders through the showcase home page. Lead with Defect Triage Agent (agentic wow-factor) and Flow Automator + Katalon live demo. Map accelerators to their current SDLC pain points.</p>
+        </div>
+      </div>
+      <div class="roadmap-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h4>Pilot on Live Data (Weeks 2–4)</h4>
+          <p>Run Story Forge on a real backlog grooming session. Feed actual Gosu into Code Review Copilot. Convert 10–20 manual test cases via Test Migrator. Score CI/CD maturity with Release Navigator.</p>
+        </div>
+      </div>
+      <div class="roadmap-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h4>Embed in Delivery (Month 2+)</h4>
+          <p>Integrate outputs into Jira/Azure DevOps (Story Forge JSON). Wire Katalon suites into CI pipeline. Establish Code Review Copilot as a pre-PR gate. Use Defect Triage for AMS L1→L2 handoff.</p>
+        </div>
+      </div>
+      <div class="roadmap-step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <h4>Measure &amp; Scale (Ongoing)</h4>
+          <p>Track ROI metrics per module against catalog benchmarks. Extend Katalon keyword libraries for client-specific customisations. Feed productionisation roadmap from docs/ARCHITECTURE.md.</p>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer"><span class="brand">GW SDLC Accelerator</span><span class="confidential">Confidential</span><span>17</span></div>
+  </div>
+
+  <!-- SLIDE 18: Next Steps -->
+  <div class="slide title-slide" style="justify-content:center">
+    <div class="eyebrow">Next Steps</div>
+    <h1 style="font-size:2rem;margin-bottom:32px">Deploy. Demo. Deliver.</h1>
+    <div style="font-size:0.95rem;line-height:2;color:var(--gray-400);max-width:600px">
+      <div>→ Deploy to Vercel with Anthropic + Neon credentials</div>
+      <div>→ Schedule a client showcase using the live application</div>
+      <div>→ Open /katalon in Katalon Studio for hands-on automation demo</div>
+      <div>→ Update ROI benchmarks in catalog.js as evidence firms up</div>
+    </div>
+    <div class="meta" style="margin-top:48px">
+      <div style="color:var(--teal);font-size:0.85rem">NTT DATA Guidewire Practice · GuidewireAI</div>
+      <div style="margin-top:8px">gw-sdlc-accelerator · Internal v1.0 · July 2026</div>
+    </div>
+    <div class="accent-bar"></div>
+  </div>
+
+</div>
+
+<div class="progress" id="progress"></div>
+<div class="nav-hint">← → arrow keys · P to print/PDF</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  let current = 0;
+
+  function show(n) {
+    slides[current].classList.remove('active');
+    current = Math.max(0, Math.min(n, slides.length - 1));
+    slides[current].classList.add('active');
+    document.getElementById('progress').style.width =
+      ((current + 1) / slides.length * 100) + '%';
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      e.preventDefault(); show(current + 1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault(); show(current - 1);
+    } else if (e.key === 'Home') {
+      show(0);
+    } else if (e.key === 'End') {
+      show(slides.length - 1);
+    } else if (e.key === 'p' || e.key === 'P') {
+      window.print();
+    }
+  });
+
+  show(0);
+</script>
+</body>
+</html>
