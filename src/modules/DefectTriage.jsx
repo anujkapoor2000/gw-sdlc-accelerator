@@ -1,8 +1,10 @@
-import React, { useRef, useState } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import { callClaude, parseModelJson } from '../lib/api.js'
+import { queryDatadogLogs, rangeToIso, TIME_RANGES } from '../lib/datadog.js'
 import {
   buildDefectReportFromError,
   buildEvidenceForError,
+  filterAnalysisByService,
   loadDatadogLogFile
 } from '../lib/logLoader.js'
 import {
@@ -17,6 +19,7 @@ import { useRequestCost, RequestCost } from '../components/RequestCost.jsx'
 const PRODUCTS = ['PolicyCenter', 'ClaimCenter', 'BillingCenter', 'Cross-suite', 'Unknown']
 const ENVIRONMENTS = ['Production', 'Pre-prod', 'UAT', 'SIT', 'Dev']
 const MAX_LOOPS = 2
+const BULK_MAX_ERRORS = 5
 const PRIORITY_TAG = { P1: 'red', P2: 'amber', P3: '', P4: 'green' }
 
 const AGENTS = {
@@ -39,13 +42,24 @@ export default function DefectTriage({ project }) {
   const [selectedErrorId, setSelectedErrorId] = useState('')
   const [logLoading, setLogLoading] = useState(false)
   const [logError, setLogError] = useState('')
+  const [logSource, setLogSource] = useState('paste')
+  const [ddQuery, setDdQuery] = useState('status:error')
+  const [ddTimeRange, setDdTimeRange] = useState('1h')
+  const [ddService, setDdService] = useState('')
+  const [serviceFilter, setServiceFilter] = useState('all')
+  const [bulkResults, setBulkResults] = useState([])
+  const [bulkProgress, setBulkProgress] = useState('')
   const fileInputRef = useRef(null)
   const runId = useRef(0)
   const reqCost = useRequestCost()
 
+  const visibleErrors = useMemo(() => {
+    if (!logAnalysis) return []
+    return filterAnalysisByService(logAnalysis, serviceFilter).errors
+  }, [logAnalysis, serviceFilter])
+
   function pushStep(step) {
     setSteps((s) => [...s, step])
-    return Date.now()
   }
   function completeStep(idx, patch) {
     setSteps((s) => s.map((st, i) => (i === idx ? { ...st, ...patch } : st)))
@@ -67,6 +81,91 @@ export default function DefectTriage({ project }) {
   }
   const stepsCountRef = useRef(0)
 
+  function buildBaseContext(defectText, evidenceText, sourceLabel) {
+    return `Product: ${product}
+Environment: ${env}
+${sourceLabel ? `Log source: ${sourceLabel}` : ''}
+
+Defect report:
+${defectText}
+
+Supporting material (logs / stack trace / code, may be empty):
+${evidenceText || '(none provided)'}`
+  }
+
+  async function runPipeline({ defectText, evidenceText, sourceLabel, thisRun }) {
+    const baseContext = buildBaseContext(defectText, evidenceText, sourceLabel)
+
+    const intake = await runAgent('intake', TRIAGE_INTAKE_SYSTEM, baseContext,
+      'Parsing the report into a structured case file')
+    if (thisRun !== runId.current) throw new Error('Cancelled')
+
+    let investigation = null
+    let routing = null
+    let loopDirective = ''
+    for (let pass = 0; pass <= MAX_LOOPS; pass++) {
+      investigation = await runAgent(
+        'investigator',
+        TRIAGE_INVESTIGATOR_SYSTEM,
+        `${baseContext}
+
+Intake case file:
+${JSON.stringify(intake, null, 2)}
+${loopDirective ? `\nFollow-up directive from Router Agent (pass ${pass + 1}):\n${loopDirective}` : ''}`,
+        pass === 0
+          ? 'Forming root-cause hypotheses'
+          : `Deeper pass ${pass + 1} — focusing on the router's directive`
+      )
+      if (thisRun !== runId.current) throw new Error('Cancelled')
+
+      routing = await runAgent(
+        'router',
+        TRIAGE_ROUTER_SYSTEM,
+        `Loop budget: pass ${pass + 1} of ${MAX_LOOPS + 1}. ${pass === MAX_LOOPS ? 'This is the final pass — you MUST route.' : ''}
+
+Intake case file:
+${JSON.stringify(intake, null, 2)}
+
+Investigation result:
+${JSON.stringify(investigation, null, 2)}`,
+        'Deciding: route the case, or send it back for another pass'
+      )
+      if (thisRun !== runId.current) throw new Error('Cancelled')
+
+      if (routing.decision !== 'investigate-further' || pass === MAX_LOOPS) break
+      loopDirective = routing.loopDirective
+      pushStep({ agent: 'loop', status: 'loop', note: routing.loopDirective, startedAt: Date.now() })
+      stepsCountRef.current++
+    }
+
+    const plan = await runAgent(
+      'planner',
+      TRIAGE_PLANNER_SYSTEM,
+      `Intake case file:
+${JSON.stringify(intake, null, 2)}
+
+Lead hypothesis (confidence ${investigation.overallConfidence}%):
+${investigation.leadHypothesis}
+
+Routing decision:
+${JSON.stringify(routing, null, 2)}`,
+      'Producing workaround, permanent fix and regression coverage'
+    )
+    if (thisRun !== runId.current) throw new Error('Cancelled')
+
+    return { intake, investigation, routing, plan }
+  }
+
+  function applyLogAnalysis(analysis) {
+    setLogAnalysis(analysis)
+    setServiceFilter('all')
+    setBulkResults([])
+    setBulkProgress('')
+    if (analysis.errors.length === 0) return false
+    selectError(analysis, analysis.errors[0].id)
+    return true
+  }
+
   async function handleLogFile(e) {
     const file = e.target.files?.[0]
     e.target.value = ''
@@ -79,11 +178,33 @@ export default function DefectTriage({ project }) {
 
     try {
       const analysis = await loadDatadogLogFile(file)
-      setLogAnalysis(analysis)
-      if (analysis.errors.length === 0) {
+      if (!applyLogAnalysis(analysis)) {
         setLogError(`Loaded "${file.name}" (${analysis.totalEntries} entries) but no errors were detected. You can still paste content into the evidence field manually.`)
-      } else {
-        selectError(analysis, analysis.errors[0].id)
+      }
+    } catch (err) {
+      setLogError(err.message)
+    } finally {
+      setLogLoading(false)
+    }
+  }
+
+  async function handleDatadogQuery() {
+    setLogLoading(true)
+    setLogError('')
+    setLogAnalysis(null)
+    setSelectedErrorId('')
+
+    try {
+      const { from, to } = rangeToIso(ddTimeRange)
+      const analysis = await queryDatadogLogs({
+        query: ddQuery || 'status:error',
+        from,
+        to,
+        service: ddService.trim(),
+        limit: 100
+      })
+      if (!applyLogAnalysis(analysis)) {
+        setLogError(`Query returned ${analysis.totalEntries} log entries but no errors were detected. Try broadening the query or time range.`)
       }
     } catch (err) {
       setLogError(err.message)
@@ -93,10 +214,10 @@ export default function DefectTriage({ project }) {
   }
 
   function selectError(analysis, errorId) {
-    const error = analysis.errors.find((e) => e.id === errorId)
-    if (!error) return
+    const err = analysis.errors.find((e) => e.id === errorId)
+    if (!err) return
     setSelectedErrorId(errorId)
-    setDefect(buildDefectReportFromError(error, { filename: analysis.filename, product, env }))
+    setDefect(buildDefectReportFromError(err, { filename: analysis.filename, product, env }))
     setEvidence(buildEvidenceForError(analysis, errorId))
   }
 
@@ -109,10 +230,20 @@ export default function DefectTriage({ project }) {
   async function run(opts = {}) {
     const thisRun = ++runId.current
     stepsCountRef.current = 0
-    setSteps([]); setError(''); setFinalCase(null); setRunning(true); reqCost.reset()
+    setSteps([])
+    setError('')
+    setFinalCase(null)
+    setBulkResults([])
+    setBulkProgress('')
+    setRunning(true)
+    reqCost.reset()
 
     let defectText = defect
     let evidenceText = evidence
+    let sourceLabel = logAnalysis
+      ? `${logAnalysis.filename} (${logAnalysis.format}, ${logAnalysis.errorCount} errors detected)`
+      : ''
+
     if (opts.errorId && logAnalysis) {
       const err = logAnalysis.errors.find((e) => e.id === opts.errorId)
       if (err) {
@@ -124,80 +255,60 @@ export default function DefectTriage({ project }) {
       }
     }
 
-    const baseContext = `Product: ${product}
-Environment: ${env}
-${logAnalysis ? `Log source: ${logAnalysis.filename} (${logAnalysis.format}, ${logAnalysis.errorCount} errors detected)` : ''}
-
-Defect report:
-${defectText}
-
-Supporting material (logs / stack trace / code, may be empty):
-${evidenceText || '(none provided)'}`
-
     try {
-      // 1 — Intake
-      const intake = await runAgent('intake', TRIAGE_INTAKE_SYSTEM, baseContext,
-        'Parsing the report into a structured case file')
-
-      // 2..n — Investigate, with router-driven loops
-      let investigation = null
-      let routing = null
-      let loopDirective = ''
-      for (let pass = 0; pass <= MAX_LOOPS; pass++) {
-        investigation = await runAgent(
-          'investigator',
-          TRIAGE_INVESTIGATOR_SYSTEM,
-          `${baseContext}
-
-Intake case file:
-${JSON.stringify(intake, null, 2)}
-${loopDirective ? `\nFollow-up directive from Router Agent (pass ${pass + 1}):\n${loopDirective}` : ''}`,
-          pass === 0
-            ? 'Forming root-cause hypotheses'
-            : `Deeper pass ${pass + 1} — focusing on the router's directive`
-        )
-
-        routing = await runAgent(
-          'router',
-          TRIAGE_ROUTER_SYSTEM,
-          `Loop budget: pass ${pass + 1} of ${MAX_LOOPS + 1}. ${pass === MAX_LOOPS ? 'This is the final pass — you MUST route.' : ''}
-
-Intake case file:
-${JSON.stringify(intake, null, 2)}
-
-Investigation result:
-${JSON.stringify(investigation, null, 2)}`,
-          'Deciding: route the case, or send it back for another pass'
-        )
-
-        if (routing.decision !== 'investigate-further' || pass === MAX_LOOPS) break
-        loopDirective = routing.loopDirective
-        pushStep({ agent: 'loop', status: 'loop', note: routing.loopDirective, startedAt: Date.now() })
-        stepsCountRef.current++
-      }
-
-      // final — Fix plan
-      const plan = await runAgent(
-        'planner',
-        TRIAGE_PLANNER_SYSTEM,
-        `Intake case file:
-${JSON.stringify(intake, null, 2)}
-
-Lead hypothesis (confidence ${investigation.overallConfidence}%):
-${investigation.leadHypothesis}
-
-Routing decision:
-${JSON.stringify(routing, null, 2)}`,
-        'Producing workaround, permanent fix and regression coverage'
-      )
-
-      if (thisRun === runId.current) {
-        setFinalCase({ intake, investigation, routing, plan })
-      }
+      const result = await runPipeline({ defectText, evidenceText, sourceLabel, thisRun })
+      if (thisRun === runId.current) setFinalCase(result)
     } catch (e) {
-      if (thisRun === runId.current) setError(e.message)
+      if (thisRun === runId.current && e.message !== 'Cancelled') setError(e.message)
     } finally {
       if (thisRun === runId.current) setRunning(false)
+    }
+  }
+
+  async function runBulk() {
+    if (!logAnalysis || visibleErrors.length === 0) return
+
+    const errors = visibleErrors.slice(0, BULK_MAX_ERRORS)
+    const skipped = visibleErrors.length - errors.length
+    const thisRun = ++runId.current
+    stepsCountRef.current = 0
+    setSteps([])
+    setError('')
+    setFinalCase(null)
+    setBulkResults([])
+    setRunning(true)
+    reqCost.reset()
+    setBulkProgress(`Investigating 0 of ${errors.length}…`)
+
+    const results = []
+    for (let i = 0; i < errors.length; i++) {
+      if (thisRun !== runId.current) break
+      const err = errors[i]
+      setBulkProgress(`Investigating ${i + 1} of ${errors.length}: ${err.preview.slice(0, 80)}…`)
+      setSelectedErrorId(err.id)
+      stepsCountRef.current = 0
+      setSteps([])
+
+      const defectText = buildDefectReportFromError(err, { filename: logAnalysis.filename, product, env })
+      const evidenceText = buildEvidenceForError(logAnalysis, err.id)
+      const sourceLabel = `${logAnalysis.filename} · error ${i + 1}/${errors.length}`
+
+      try {
+        const finalCase = await runPipeline({ defectText, evidenceText, sourceLabel, thisRun })
+        results.push({ error: err, finalCase, status: 'done' })
+      } catch (e) {
+        if (e.message === 'Cancelled') break
+        results.push({ error: err, failMessage: e.message, status: 'failed' })
+      }
+      if (thisRun === runId.current) setBulkResults([...results])
+    }
+
+    if (thisRun === runId.current) {
+      setBulkProgress(skipped > 0
+        ? `Done — ${results.length} investigated, ${skipped} skipped (max ${BULK_MAX_ERRORS} per bulk run)`
+        : '')
+      if (results.length === 1 && results[0].finalCase) setFinalCase(results[0].finalCase)
+      setRunning(false)
     }
   }
 
@@ -209,7 +320,8 @@ ${JSON.stringify(routing, null, 2)}`,
         <p className="page-desc">
           Four specialist agents work the case autonomously: intake structures the report, an investigator
           forms ranked hypotheses, a router either assigns the case or sends it back for a deeper pass when
-          confidence is low, and a planner writes the fix. Every handoff is visible below.
+          confidence is low, and a planner writes the fix. Load a Datadog export, query live logs, filter
+          by service, and investigate one or many errors. Every handoff is visible below.
         </p>
       </header>
 
@@ -238,12 +350,79 @@ ${JSON.stringify(routing, null, 2)}`,
             placeholder={'Paste the ticket as reported…\n\nExample: Since Monday, renewal bind fails intermittently for commercial property policies with more than one location. Users see "An unexpected error occurred" on the bind screen. Started after the weekend deployment. Roughly 1 in 5 attempts fail; retrying sometimes works.'}
           />
         </div>
+
         <div className="field">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
-            <label htmlFor="dt-evidence" style={{ margin: 0 }}>
-              Logs / stack trace / suspect code (optional — raises investigation confidence)
-            </label>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <label>Log evidence</label>
+          <div className="chips" style={{ marginBottom: 10 }}>
+            <button
+              type="button"
+              className={`chip ${logSource === 'paste' ? 'on' : ''}`}
+              onClick={() => setLogSource('paste')}
+              disabled={running}
+            >
+              Paste / file upload
+            </button>
+            <button
+              type="button"
+              className={`chip ${logSource === 'live' ? 'on' : ''}`}
+              onClick={() => setLogSource('live')}
+              disabled={running}
+            >
+              Live Datadog query
+            </button>
+          </div>
+
+          {logSource === 'live' ? (
+            <div className="dd-query-panel">
+              <div className="row">
+                <div className="field" style={{ flex: 2, minWidth: 200 }}>
+                  <label htmlFor="dt-dd-query">Log query</label>
+                  <input
+                    id="dt-dd-query"
+                    type="text"
+                    value={ddQuery}
+                    onChange={(e) => setDdQuery(e.target.value)}
+                    placeholder="status:error service:policycenter"
+                    disabled={running || logLoading}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="dt-dd-range">Time range</label>
+                  <select
+                    id="dt-dd-range"
+                    value={ddTimeRange}
+                    onChange={(e) => setDdTimeRange(e.target.value)}
+                    disabled={running || logLoading}
+                  >
+                    {TIME_RANGES.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="dt-dd-service">Service filter</label>
+                  <input
+                    id="dt-dd-service"
+                    type="text"
+                    value={ddService}
+                    onChange={(e) => setDdService(e.target.value)}
+                    placeholder="e.g. policycenter"
+                    disabled={running || logLoading}
+                  />
+                </div>
+              </div>
+              <p style={{ fontSize: 12.5, color: 'var(--slate)', margin: '0 0 10px' }}>
+                Requires <code>DD_API_KEY</code>, <code>DD_APP_KEY</code>, and optional <code>DD_SITE</code> in Vercel env vars.
+              </p>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                disabled={running || logLoading}
+                onClick={handleDatadogQuery}
+              >
+                {logLoading ? 'Querying Datadog…' : 'Fetch logs from Datadog'}
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -260,7 +439,8 @@ ${JSON.stringify(routing, null, 2)}`,
                 {logLoading ? 'Loading log…' : 'Load Datadog log file'}
               </button>
             </div>
-          </div>
+          )}
+
           <textarea
             id="dt-evidence"
             value={evidence}
@@ -272,16 +452,51 @@ ${JSON.stringify(routing, null, 2)}`,
 
         {logError && <div className="alert err" style={{ marginBottom: 12 }}>{logError}</div>}
 
-        {logAnalysis && logAnalysis.errors.length > 0 && (
+        {logAnalysis && visibleErrors.length > 0 && (
           <div className="field" style={{ marginBottom: 16 }}>
-            <label>Errors found in {logAnalysis.filename}</label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
+              <label style={{ margin: 0 }}>Errors in {logAnalysis.filename}</label>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                {logAnalysis.services.length > 1 && (
+                  <select
+                    value={serviceFilter}
+                    onChange={(e) => setServiceFilter(e.target.value)}
+                    disabled={running}
+                    style={{ fontSize: 13 }}
+                    aria-label="Filter errors by service"
+                  >
+                    <option value="all">All services ({logAnalysis.errorCount})</option>
+                    {logAnalysis.services.map((s) => (
+                      <option key={s} value={s}>
+                        {s} ({logAnalysis.errors.filter((e) => e.service === s).length})
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {visibleErrors.length > 1 && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    disabled={running}
+                    onClick={runBulk}
+                    title={visibleErrors.length > BULK_MAX_ERRORS ? `Investigates first ${BULK_MAX_ERRORS} errors` : undefined}
+                  >
+                    Investigate all ({Math.min(visibleErrors.length, BULK_MAX_ERRORS)})
+                  </button>
+                )}
+              </div>
+            </div>
             <p style={{ fontSize: 13.5, color: 'var(--slate)', margin: '0 0 10px' }}>
-              {logAnalysis.errorCount} error{logAnalysis.errorCount !== 1 ? 's' : ''} in {logAnalysis.totalEntries} log entries
-              {logAnalysis.services.length ? ` · services: ${logAnalysis.services.join(', ')}` : ''}
-              {logAnalysis.parseWarnings.length ? ` · ${logAnalysis.parseWarnings.length} parse note(s)` : ''}
+              {visibleErrors.length} error{visibleErrors.length !== 1 ? 's' : ''} shown
+              {serviceFilter !== 'all' ? ` · filtered to ${serviceFilter}` : ''}
+              {logAnalysis.totalEntries ? ` · ${logAnalysis.totalEntries} log entries` : ''}
+              {logAnalysis.source === 'live' ? ' · live query' : ''}
             </p>
+            {bulkProgress && (
+              <p style={{ fontSize: 13.5, color: 'var(--blue)', margin: '0 0 10px' }}>{bulkProgress}</p>
+            )}
             <div className="log-error-list">
-              {logAnalysis.errors.map((err) => (
+              {visibleErrors.map((err) => (
                 <div
                   key={err.id}
                   className={`log-error-item ${selectedErrorId === err.id ? 'selected' : ''}`}
@@ -315,15 +530,51 @@ ${JSON.stringify(routing, null, 2)}`,
         )}
 
         <button className="btn btn-primary" onClick={() => run()} disabled={running || !defect.trim()}>
-          {running ? <><span className="spinner" />Agents working…</> : 'Run triage pipeline'}
+          {running && !bulkProgress ? <><span className="spinner" />Agents working…</> : 'Run triage pipeline'}
         </button>
       </div>
 
       {error && <div className="alert err">{error}</div>}
 
+      {bulkResults.length > 0 && (
+        <div className="panel">
+          <h3>Bulk investigation results</h3>
+          <p style={{ fontSize: 13.5, color: 'var(--slate)', marginBottom: 12 }}>
+            {bulkResults.filter((r) => r.status === 'done').length} of {bulkResults.length} errors triaged
+          </p>
+          <div className="bulk-results">
+            {bulkResults.map((r, i) => (
+              <div key={i} className={`bulk-result-card ${r.status}`}>
+                <div className="finding-head" style={{ marginBottom: 6 }}>
+                  <span className="tag">{r.error.service}</span>
+                  {r.status === 'done' ? (
+                    <>
+                      <span className={`tag ${PRIORITY_TAG[r.finalCase.routing.priority] || ''}`}>
+                        {r.finalCase.routing.priority}
+                      </span>
+                      <span className="tag green">→ {r.finalCase.routing.routeTo}</span>
+                      <span className="tag">{r.finalCase.investigation.overallConfidence}%</span>
+                    </>
+                  ) : (
+                    <span className="tag red">failed</span>
+                  )}
+                </div>
+                <p style={{ fontSize: 13.5, marginBottom: 4 }}>{r.error.preview}</p>
+                {r.status === 'done' ? (
+                  <p style={{ fontSize: 14 }}><b>Lead hypothesis:</b> {r.finalCase.investigation.leadHypothesis}</p>
+                ) : (
+                  <p style={{ fontSize: 13.5, color: 'var(--crit)' }}>{r.failMessage}</p>
+                )}
+              </div>
+            ))}
+          </div>
+          <RequestCost totals={reqCost.totals} />
+        </div>
+      )}
+
       {steps.length > 0 && (
         <div className="panel">
-          <h3>Agent timeline</h3>
+          <h3>Agent timeline{bulkProgress ? ' (current error)' : ''}</h3>
           <div className="agent-timeline">
             {steps.map((s, i) =>
               s.agent === 'loop' ? (
@@ -338,7 +589,7 @@ ${JSON.stringify(routing, null, 2)}`,
         </div>
       )}
 
-      {finalCase && (
+      {finalCase && bulkResults.length <= 1 && (
         <>
           <div className="panel">
             <h3>Triage outcome</h3>
@@ -359,7 +610,7 @@ ${JSON.stringify(routing, null, 2)}`,
                 content={finalCase}
               />
             </div>
-            <RequestCost totals={reqCost.totals} />
+            {bulkResults.length === 0 && <RequestCost totals={reqCost.totals} />}
           </div>
 
           <div className="panel">

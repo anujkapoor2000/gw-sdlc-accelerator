@@ -153,12 +153,11 @@ export function extractErrorFromEntry(entry, index) {
 }
 
 /**
- * Parse log text and extract all error records.
- * @param {string} text
- * @param {string} [filename]
+ * Parse log entries (from file or Datadog API) and extract all error records.
+ * @param {object[]} entries
+ * @param {{ filename?: string, format?: string, source?: string, meta?: object }} [meta]
  */
-export function analyseDatadogLog(text, filename = 'log') {
-  const { entries, format, parseWarnings } = parseDatadogLogs(text, filename)
+export function analyseDatadogEntries(entries, meta = {}) {
   const errors = []
   entries.forEach((entry, i) => {
     const err = extractErrorFromEntry(entry, i)
@@ -168,14 +167,42 @@ export function analyseDatadogLog(text, filename = 'log') {
   const services = [...new Set(errors.map((e) => e.service).filter((s) => s && s !== 'unknown'))]
 
   return {
-    filename,
-    format,
-    parseWarnings,
+    filename: meta.filename || 'log',
+    format: meta.format || 'entries',
+    source: meta.source || 'file',
+    meta: meta.meta || null,
+    parseWarnings: meta.parseWarnings || [],
     totalEntries: entries.length,
     errorCount: errors.length,
     services,
     errors,
     entries
+  }
+}
+
+/**
+ * Parse log text and extract all error records.
+ * @param {string} text
+ * @param {string} [filename]
+ */
+export function analyseDatadogLog(text, filename = 'log') {
+  const { entries, format, parseWarnings } = parseDatadogLogs(text, filename)
+  return analyseDatadogEntries(entries, { filename, format, source: 'file', parseWarnings })
+}
+
+/**
+ * Filter analysis to a single service (client-side). Keeps full entries for context.
+ * @param {object} analysis
+ * @param {string} service — service name or 'all'
+ */
+export function filterAnalysisByService(analysis, service) {
+  if (!analysis || !service || service === 'all') return analysis
+  const errors = analysis.errors.filter((e) => e.service === service)
+  return {
+    ...analysis,
+    errors,
+    errorCount: errors.length,
+    serviceFilter: service
   }
 }
 

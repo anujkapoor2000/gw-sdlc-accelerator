@@ -238,7 +238,7 @@ export const CATALOG = [
       { param: 'Product / Environment', values: 'PC / CC / BC / Cross-suite · Prod / Pre-prod / UAT / SIT / Dev' },
       { param: 'Loop threshold', values: 'Confidence < 65% triggers re-investigation' },
       { param: 'Loop budget', values: 'Max 2 extra passes (MAX_LOOPS in DefectTriage.jsx)' },
-      { param: 'Evidence', values: 'Optional logs / stack trace / code — or load a Datadog .json/.ndjson export to pick an error' }
+      { param: 'Evidence', values: 'Paste, file upload, or live Datadog query — filter by service, investigate one or bulk (max 5)' }
     ]
   }
 ]
@@ -246,5 +246,8 @@ export const CATALOG = [
 export const SHARED_CONFIG = [
   { param: 'ANTHROPIC_API_KEY', values: 'Vercel env var — server-side only, powers all agents' },
   { param: 'ANTHROPIC_MODEL', values: 'Optional override, defaults to claude-sonnet-4-6' },
-  { param: 'DATABASE_URL', values: 'Neon pooled connection string (plain env var, not a Secret)' }
+  { param: 'DATABASE_URL', values: 'Neon pooled connection string (plain env var, not a Secret)' },
+  { param: 'DD_API_KEY', values: 'Datadog API key — server-side only, powers live log queries in Defect Triage' },
+  { param: 'DD_APP_KEY', values: 'Datadog application key — required with DD_API_KEY for Logs Search API' },
+  { param: 'DD_SITE', values: 'Optional Datadog site (default datadoghq.com; use datadoghq.eu, us3.datadoghq.com, etc.)' }
 ]

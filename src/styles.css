@@ -456,6 +456,17 @@ ul.plain li::before { content: ''; position: absolute; left: 2px; top: 11px; wid
 }
 .log-error-item .btn-sm { align-self: center; margin-right: 10px; flex-shrink: 0; }
 
+.dd-query-panel {
+  background: #f8fafc; border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 12px 14px; margin-bottom: 10px;
+}
+.bulk-results { display: flex; flex-direction: column; gap: 10px; }
+.bulk-result-card {
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; background: #fff;
+}
+.bulk-result-card.failed { border-left: 4px solid var(--crit); }
+.bulk-result-card.done { border-left: 4px solid var(--ok); }
+
 .agent-step {
   border: 1px solid var(--line); border-radius: var(--radius);
   padding: 13px 14px; margin-bottom: 10px; background: #fff;
