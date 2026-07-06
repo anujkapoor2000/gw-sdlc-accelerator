@@ -1,11 +1,13 @@
 import React, { useState } from 'react'
+import { formatLogTimestamp } from '../lib/logLoader.js'
 
 const BULK_MAX_ERRORS = 5
 
-function fmtTime(ts) {
-  if (!ts || ts === 'undefined') return '—'
-  const d = new Date(ts)
-  return Number.isNaN(d.getTime()) ? String(ts) : d.toLocaleString()
+function fmtTime(errOrTs, lineNumber) {
+  if (errOrTs && typeof errOrTs === 'object') {
+    return formatLogTimestamp(errOrTs.timestamp, { lineNumber: errOrTs.lineNumber })
+  }
+  return formatLogTimestamp(errOrTs, { lineNumber })
 }
 
 export default function LogErrorDashboard({
@@ -94,7 +96,7 @@ export default function LogErrorDashboard({
 
         {dashboard.timeRange && (
           <p className="log-dashboard-meta">
-            Time span: {fmtTime(dashboard.timeRange.from)} → {fmtTime(dashboard.timeRange.to)}
+            Time span: {dashboard.timeRange.from} → {dashboard.timeRange.to}
           </p>
         )}
 
@@ -191,7 +193,11 @@ export default function LogErrorDashboard({
                           ))}
                         </td>
                         <td><b>{scenario.count}</b></td>
-                        <td className="log-ts">{fmtTime(scenario.latestTimestamp)}</td>
+                        <td className="log-ts">
+                          {scenario.latestTimestampMs != null
+                            ? new Date(scenario.latestTimestampMs).toLocaleString()
+                            : fmtTime(scenario.errors[0])}
+                        </td>
                         <td className="log-actions">
                           <button
                             type="button"
@@ -226,7 +232,7 @@ export default function LogErrorDashboard({
                           <td><span className="tag">{err.service}</span></td>
                           <td><span className="tag red">{err.status}</span></td>
                           <td>—</td>
-                          <td className="log-ts">{fmtTime(err.timestamp)}</td>
+                          <td className="log-ts">{fmtTime(err)}</td>
                           <td className="log-actions">
                             <button
                               type="button"

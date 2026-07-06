@@ -85,6 +85,54 @@ function nested(obj, path) {
 }
 
 /**
+ * Parse a Datadog/log timestamp to epoch milliseconds, or null if not a real timestamp.
+ * Handles ISO strings and epoch ns/µs/ms/s. Rejects bare small numbers (line indices).
+ * @param {*} raw
+ * @returns {number|null}
+ */
+export function parseLogTimestamp(raw) {
+  if (raw == null || raw === '') return null
+  if (raw instanceof Date) {
+    const t = raw.getTime()
+    return Number.isNaN(t) ? null : t
+  }
+
+  const s = String(raw).trim()
+  if (!s || s === 'undefined') return null
+
+  // ISO-8601 and structured date strings — never bare digit-only strings (parsed as years)
+  if (/^\d{4}-\d{2}-\d{2}/.test(s) || s.includes('T') || /^\d{4}\/\d{2}\/\d{2}/.test(s)) {
+    const d = new Date(s)
+    return Number.isNaN(d.getTime()) ? null : d.getTime()
+  }
+
+  if (!/^-?\d+(\.\d+)?$/.test(s)) return null
+
+  const n = Number(s)
+  if (!Number.isFinite(n)) return null
+
+  if (n >= 1e18) return Math.round(n / 1e6) // nanoseconds → ms
+  if (n >= 1e15) return Math.round(n / 1e3) // microseconds → ms
+  if (n >= 1e12) return Math.round(n) // milliseconds
+  if (n >= 1e9) return Math.round(n * 1000) // seconds → ms
+
+  return null // line numbers / small indices — not timestamps
+}
+
+/**
+ * Format a log timestamp for display. Never passes bare numbers to Date (year bug).
+ * @param {*} raw
+ * @param {{ lineNumber?: number|null }} [opts]
+ */
+export function formatLogTimestamp(raw, opts = {}) {
+  const ms = parseLogTimestamp(raw)
+  if (ms != null) return new Date(ms).toLocaleString()
+  if (opts.lineNumber != null) return `Line ${opts.lineNumber}`
+  if (raw != null && String(raw).trim()) return String(raw)
+  return '—'
+}
+
+/**
  * Extract a normalized error record from a log entry.
  * @param {object} entry
  * @param {number} index
@@ -118,7 +166,9 @@ export function extractErrorFromEntry(entry, index) {
 
   const service = String(pick(entry, 'service', 'dd.service', 'attributes.service') ?? '').trim()
   const host = String(pick(entry, 'host', 'hostname', 'dd.host') ?? '').trim()
-  const timestamp = pick(entry, '@timestamp', 'timestamp', 'date', 'time') ?? entry._line ?? index + 1
+  const rawTimestamp = pick(entry, '@timestamp', 'timestamp', 'date', 'time')
+  const lineNumber = entry._line ?? null
+  const timestampMs = parseLogTimestamp(rawTimestamp)
   const traceId = String(pick(entry, 'dd.trace_id', 'trace_id', 'attributes.dd.trace_id') ?? '').trim()
   const spanId = String(pick(entry, 'dd.span_id', 'span_id') ?? '').trim()
 
@@ -137,7 +187,9 @@ export function extractErrorFromEntry(entry, index) {
   return {
     id: `err-${index}`,
     index,
-    timestamp: String(timestamp),
+    timestamp: rawTimestamp != null ? String(rawTimestamp) : '',
+    timestampMs,
+    lineNumber,
     service: service || 'unknown',
     host,
     message,
@@ -231,7 +283,8 @@ export function groupErrorScenarios(errors) {
         services: new Set(),
         statuses: new Set(),
         count: 0,
-        latestTimestamp: err.timestamp,
+        latestTimestampMs: null,
+        latestTimestamp: '',
         representativeId: err.id
       })
     }
@@ -240,7 +293,11 @@ export function groupErrorScenarios(errors) {
     s.count++
     if (err.service) s.services.add(err.service)
     s.statuses.add(err.status)
-    if (String(err.timestamp) > String(s.latestTimestamp)) s.latestTimestamp = err.timestamp
+    const ms = err.timestampMs ?? parseLogTimestamp(err.timestamp)
+    if (ms != null && (s.latestTimestampMs == null || ms > s.latestTimestampMs)) {
+      s.latestTimestampMs = ms
+      s.latestTimestamp = err.timestamp
+    }
   }
   return [...map.values()]
     .map((s) => ({ ...s, services: [...s.services], statuses: [...s.statuses] }))
@@ -259,7 +316,10 @@ export function buildLogDashboard(analysis) {
     const svc = err.service || 'unknown'
     serviceCounts[svc] = (serviceCounts[svc] || 0) + 1
   }
-  const timestamps = analysis.errors.map((e) => e.timestamp).filter(Boolean).sort()
+  const timestamps = analysis.errors
+    .map((e) => e.timestampMs ?? parseLogTimestamp(e.timestamp))
+    .filter((ms) => ms != null)
+    .sort((a, b) => a - b)
   const exceptionTypes = [...new Set(analysis.errors.map((e) => e.errorKind).filter(Boolean))]
 
   return {
@@ -276,7 +336,14 @@ export function buildLogDashboard(analysis) {
     errorRate: analysis.totalEntries
       ? Math.round((analysis.errorCount / analysis.totalEntries) * 100)
       : 0,
-    timeRange: timestamps.length ? { from: timestamps[0], to: timestamps[timestamps.length - 1] } : null,
+    timeRange: timestamps.length
+      ? {
+          fromMs: timestamps[0],
+          toMs: timestamps[timestamps.length - 1],
+          from: new Date(timestamps[0]).toLocaleString(),
+          to: new Date(timestamps[timestamps.length - 1]).toLocaleString()
+        }
+      : null,
     scenarios
   }
 }
@@ -297,7 +364,7 @@ export function buildDefectReportFromError(error, ctx = {}) {
   if (env) lines.push(`Environment: ${env}`)
   lines.push('', `Service: ${error.service}`)
   if (error.host) lines.push(`Host: ${error.host}`)
-  lines.push(`Timestamp: ${error.timestamp}`)
+  lines.push(`Timestamp: ${formatLogTimestamp(error.timestamp, { lineNumber: error.lineNumber })}`)
   if (error.traceId) lines.push(`Trace ID: ${error.traceId}`)
   if (error.httpStatus) lines.push(`HTTP status: ${error.httpStatus}`)
   lines.push('', 'Error message:', error.message || error.preview)
@@ -356,7 +423,7 @@ export function buildEvidenceForError(analysis, errorId, maxChars = MAX_EVIDENCE
 
 function formatErrorBlock(error) {
   const lines = [
-    `timestamp: ${error.timestamp}`,
+    `timestamp: ${formatLogTimestamp(error.timestamp, { lineNumber: error.lineNumber })}`,
     `service: ${error.service}`,
   ]
   if (error.host) lines.push(`host: ${error.host}`)
