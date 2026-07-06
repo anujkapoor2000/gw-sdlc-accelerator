@@ -221,10 +221,20 @@ ${JSON.stringify(routing, null, 2)}`,
     setEvidence(buildEvidenceForError(analysis, errorId))
   }
 
-  function investigateError(errorId) {
+  async function investigateError(errorId) {
     if (!logAnalysis) return
-    selectError(logAnalysis, errorId)
-    run({ errorId })
+    const err = logAnalysis.errors.find((e) => e.id === errorId)
+    if (!err) {
+      setError('Could not find that error in the loaded logs.')
+      return
+    }
+    const defectText = buildDefectReportFromError(err, { filename: logAnalysis.filename, product, env })
+    const evidenceText = buildEvidenceForError(logAnalysis, errorId)
+    const sourceLabel = `${logAnalysis.filename} (${logAnalysis.format}, ${logAnalysis.errorCount} errors detected)`
+    setSelectedErrorId(errorId)
+    setDefect(defectText)
+    setEvidence(evidenceText)
+    await run({ defectText, evidenceText, sourceLabel })
   }
 
   async function run(opts = {}) {
@@ -235,16 +245,14 @@ ${JSON.stringify(routing, null, 2)}`,
     setFinalCase(null)
     setBulkResults([])
     setBulkProgress('')
-    setRunning(true)
-    reqCost.reset()
 
-    let defectText = defect
-    let evidenceText = evidence
-    let sourceLabel = logAnalysis
+    let defectText = opts.defectText ?? defect
+    let evidenceText = opts.evidenceText ?? evidence
+    let sourceLabel = opts.sourceLabel ?? (logAnalysis
       ? `${logAnalysis.filename} (${logAnalysis.format}, ${logAnalysis.errorCount} errors detected)`
-      : ''
+      : '')
 
-    if (opts.errorId && logAnalysis) {
+    if (opts.errorId && logAnalysis && !opts.defectText) {
       const err = logAnalysis.errors.find((e) => e.id === opts.errorId)
       if (err) {
         defectText = buildDefectReportFromError(err, { filename: logAnalysis.filename, product, env })
@@ -254,6 +262,14 @@ ${JSON.stringify(routing, null, 2)}`,
         setEvidence(evidenceText)
       }
     }
+
+    if (!defectText.trim()) {
+      setError('Add a defect report or select an error from loaded logs.')
+      return
+    }
+
+    setRunning(true)
+    reqCost.reset()
 
     try {
       const result = await runPipeline({ defectText, evidenceText, sourceLabel, thisRun })
@@ -519,7 +535,7 @@ ${JSON.stringify(routing, null, 2)}`,
                     type="button"
                     className="btn btn-primary btn-sm"
                     disabled={running}
-                    onClick={() => investigateError(err.id)}
+                    onClick={(e) => { e.stopPropagation(); investigateError(err.id) }}
                   >
                     Investigate
                   </button>

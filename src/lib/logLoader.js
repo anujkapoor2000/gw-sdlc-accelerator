@@ -220,17 +220,12 @@ export function buildDefectReportFromError(error, ctx = {}) {
   ]
   if (product) lines.push(`Product context: ${product}`)
   if (env) lines.push(`Environment: ${env}`)
-  lines.push(
-    '',
-    `Service: ${error.service}`,
-    error.host ? `Host: ${error.host}` : null,
-    `Timestamp: ${error.timestamp}`,
-    error.traceId ? `Trace ID: ${error.traceId}` : null,
-    error.httpStatus ? `HTTP status: ${error.httpStatus}` : null,
-    '',
-    'Error message:',
-    error.message || error.preview,
-  ).filter(Boolean)
+  lines.push('', `Service: ${error.service}`)
+  if (error.host) lines.push(`Host: ${error.host}`)
+  lines.push(`Timestamp: ${error.timestamp}`)
+  if (error.traceId) lines.push(`Trace ID: ${error.traceId}`)
+  if (error.httpStatus) lines.push(`HTTP status: ${error.httpStatus}`)
+  lines.push('', 'Error message:', error.message || error.preview)
 
   if (error.errorKind) {
     lines.push('', `Exception type: ${error.errorKind}`)
