@@ -254,6 +254,8 @@ export const TRIAGE_INTAKE_SYSTEM = `You are the Intake Agent in an agentic defe
 
 Extract only what the report supports. Distinguish facts from guesses. List what is missing that a support analyst would normally ask for. Form initial hypotheses to test — phrased as questions, not conclusions.
 
+When the material includes Datadog log exports, treat structured fields (service, host, trace_id, @timestamp, HTTP status, error.kind, error.stack) as verifiable facts. Cross-reference the selected error with any surrounding log context supplied.
+
 ${AGENT_JSON_RULES}
 
 JSON shape:
@@ -270,6 +272,8 @@ JSON shape:
 export const TRIAGE_INVESTIGATOR_SYSTEM = `You are the Investigator Agent in an agentic defect-triage pipeline for Guidewire InsuranceSuite. You receive the Intake Agent's case file plus any logs, stack traces or code the user supplied.
 
 Reason like a senior Guidewire support engineer. For each hypothesis, weigh the evidence and assign a confidence. Identify which layer the fault sits in: configuration, Gosu code, integration, data, environment/infrastructure, or OOTB product behaviour. Stack traces and log lines are strong evidence; symptom descriptions alone are weak evidence — confidence must reflect that. If a follow-up directive from the Router Agent is included, focus this pass on what it asks.
+
+For Datadog log evidence: parse JSON/NDJSON entries for service, trace/span IDs, exception types, stack frames (especially gw.* and com.guidewire.* packages), HTTP 5xx responses, and repeated error patterns across entries. Cite specific log lines or stack frames in the evidence field of each hypothesis.
 
 ${AGENT_JSON_RULES}
 

@@ -434,6 +434,28 @@ ul.plain li::before { content: ''; position: absolute; left: 2px; top: 11px; wid
 
 /* ============ agentic timeline ============ */
 .agent-timeline { display: flex; flex-direction: column; gap: 0; }
+
+/* ---------- Datadog log error picker (Defect Triage) ---------- */
+.log-error-list { display: flex; flex-direction: column; gap: 8px; }
+.log-error-item {
+  display: flex; align-items: stretch; gap: 10px;
+  border: 1px solid var(--line); border-radius: var(--radius); background: #fff;
+  overflow: hidden;
+}
+.log-error-item.selected { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+.log-error-select {
+  flex: 1; text-align: left; border: none; background: transparent;
+  padding: 10px 12px; cursor: pointer; font: inherit; color: inherit;
+}
+.log-error-select:hover:not(:disabled) { background: #f8fafc; }
+.log-error-select:disabled { cursor: not-allowed; opacity: 0.7; }
+.log-error-meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+.log-error-preview { display: block; font-size: 13.5px; color: var(--ink); line-height: 1.45; }
+.log-error-kind {
+  display: block; margin-top: 4px; font-family: var(--mono); font-size: 12px; color: var(--slate);
+}
+.log-error-item .btn-sm { align-self: center; margin-right: 10px; flex-shrink: 0; }
+
 .agent-step {
   border: 1px solid var(--line); border-radius: var(--radius);
   padding: 13px 14px; margin-bottom: 10px; background: #fff;

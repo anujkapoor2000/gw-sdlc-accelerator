@@ -1,6 +1,11 @@
 import React, { useRef, useState } from 'react'
 import { callClaude, parseModelJson } from '../lib/api.js'
 import {
+  buildDefectReportFromError,
+  buildEvidenceForError,
+  loadDatadogLogFile
+} from '../lib/logLoader.js'
+import {
   TRIAGE_INTAKE_SYSTEM,
   TRIAGE_INVESTIGATOR_SYSTEM,
   TRIAGE_ROUTER_SYSTEM,
@@ -30,6 +35,11 @@ export default function DefectTriage({ project }) {
   const [running, setRunning] = useState(false)
   const [error, setError] = useState('')
   const [finalCase, setFinalCase] = useState(null)
+  const [logAnalysis, setLogAnalysis] = useState(null)
+  const [selectedErrorId, setSelectedErrorId] = useState('')
+  const [logLoading, setLogLoading] = useState(false)
+  const [logError, setLogError] = useState('')
+  const fileInputRef = useRef(null)
   const runId = useRef(0)
   const reqCost = useRequestCost()
 
@@ -57,19 +67,72 @@ export default function DefectTriage({ project }) {
   }
   const stepsCountRef = useRef(0)
 
-  async function run() {
-    runId.current++
+  async function handleLogFile(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+
+    setLogLoading(true)
+    setLogError('')
+    setLogAnalysis(null)
+    setSelectedErrorId('')
+
+    try {
+      const analysis = await loadDatadogLogFile(file)
+      setLogAnalysis(analysis)
+      if (analysis.errors.length === 0) {
+        setLogError(`Loaded "${file.name}" (${analysis.totalEntries} entries) but no errors were detected. You can still paste content into the evidence field manually.`)
+      } else {
+        selectError(analysis, analysis.errors[0].id)
+      }
+    } catch (err) {
+      setLogError(err.message)
+    } finally {
+      setLogLoading(false)
+    }
+  }
+
+  function selectError(analysis, errorId) {
+    const error = analysis.errors.find((e) => e.id === errorId)
+    if (!error) return
+    setSelectedErrorId(errorId)
+    setDefect(buildDefectReportFromError(error, { filename: analysis.filename, product, env }))
+    setEvidence(buildEvidenceForError(analysis, errorId))
+  }
+
+  function investigateError(errorId) {
+    if (!logAnalysis) return
+    selectError(logAnalysis, errorId)
+    run({ errorId })
+  }
+
+  async function run(opts = {}) {
+    const thisRun = ++runId.current
     stepsCountRef.current = 0
     setSteps([]); setError(''); setFinalCase(null); setRunning(true); reqCost.reset()
 
+    let defectText = defect
+    let evidenceText = evidence
+    if (opts.errorId && logAnalysis) {
+      const err = logAnalysis.errors.find((e) => e.id === opts.errorId)
+      if (err) {
+        defectText = buildDefectReportFromError(err, { filename: logAnalysis.filename, product, env })
+        evidenceText = buildEvidenceForError(logAnalysis, opts.errorId)
+        setSelectedErrorId(opts.errorId)
+        setDefect(defectText)
+        setEvidence(evidenceText)
+      }
+    }
+
     const baseContext = `Product: ${product}
 Environment: ${env}
+${logAnalysis ? `Log source: ${logAnalysis.filename} (${logAnalysis.format}, ${logAnalysis.errorCount} errors detected)` : ''}
 
 Defect report:
-${defect}
+${defectText}
 
 Supporting material (logs / stack trace / code, may be empty):
-${evidence || '(none provided)'}`
+${evidenceText || '(none provided)'}`
 
     try {
       // 1 — Intake
@@ -128,11 +191,13 @@ ${JSON.stringify(routing, null, 2)}`,
         'Producing workaround, permanent fix and regression coverage'
       )
 
-      setFinalCase({ intake, investigation, routing, plan })
+      if (thisRun === runId.current) {
+        setFinalCase({ intake, investigation, routing, plan })
+      }
     } catch (e) {
-      setError(e.message)
+      if (thisRun === runId.current) setError(e.message)
     } finally {
-      setRunning(false)
+      if (thisRun === runId.current) setRunning(false)
     }
   }
 
@@ -174,16 +239,82 @@ ${JSON.stringify(routing, null, 2)}`,
           />
         </div>
         <div className="field">
-          <label htmlFor="dt-evidence">Logs / stack trace / suspect code (optional — raises investigation confidence)</label>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+            <label htmlFor="dt-evidence" style={{ margin: 0 }}>
+              Logs / stack trace / suspect code (optional — raises investigation confidence)
+            </label>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json,.txt,.log,.ndjson,.csv"
+                style={{ display: 'none' }}
+                onChange={handleLogFile}
+              />
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                disabled={running || logLoading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {logLoading ? 'Loading log…' : 'Load Datadog log file'}
+              </button>
+            </div>
+          </div>
           <textarea
             id="dt-evidence"
             value={evidence}
             onChange={(e) => setEvidence(e.target.value)}
             style={{ minHeight: 110 }}
-            placeholder={'java.lang.IllegalStateException: Bean already committed in bundle…\n  at gw.pl.persistence.core.Bundle.commit(…)'}
+            placeholder={'Paste logs or load a Datadog export (.json / .ndjson / .log)…\n\njava.lang.IllegalStateException: Bean already committed in bundle…\n  at gw.pl.persistence.core.Bundle.commit(…)'}
           />
         </div>
-        <button className="btn btn-primary" onClick={run} disabled={running || !defect.trim()}>
+
+        {logError && <div className="alert err" style={{ marginBottom: 12 }}>{logError}</div>}
+
+        {logAnalysis && logAnalysis.errors.length > 0 && (
+          <div className="field" style={{ marginBottom: 16 }}>
+            <label>Errors found in {logAnalysis.filename}</label>
+            <p style={{ fontSize: 13.5, color: 'var(--slate)', margin: '0 0 10px' }}>
+              {logAnalysis.errorCount} error{logAnalysis.errorCount !== 1 ? 's' : ''} in {logAnalysis.totalEntries} log entries
+              {logAnalysis.services.length ? ` · services: ${logAnalysis.services.join(', ')}` : ''}
+              {logAnalysis.parseWarnings.length ? ` · ${logAnalysis.parseWarnings.length} parse note(s)` : ''}
+            </p>
+            <div className="log-error-list">
+              {logAnalysis.errors.map((err) => (
+                <div
+                  key={err.id}
+                  className={`log-error-item ${selectedErrorId === err.id ? 'selected' : ''}`}
+                >
+                  <button
+                    type="button"
+                    className="log-error-select"
+                    onClick={() => selectError(logAnalysis, err.id)}
+                    disabled={running}
+                  >
+                    <span className="log-error-meta">
+                      <span className="tag red">{err.status}</span>
+                      {err.service !== 'unknown' && <span className="tag">{err.service}</span>}
+                      <span style={{ fontSize: 12.5, color: 'var(--slate)' }}>{err.timestamp}</span>
+                    </span>
+                    <span className="log-error-preview">{err.preview}</span>
+                    {err.errorKind && <span className="log-error-kind">{err.errorKind}</span>}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    disabled={running}
+                    onClick={() => investigateError(err.id)}
+                  >
+                    Investigate
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <button className="btn btn-primary" onClick={() => run()} disabled={running || !defect.trim()}>
           {running ? <><span className="spinner" />Agents working…</> : 'Run triage pipeline'}
         </button>
       </div>

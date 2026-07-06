@@ -230,7 +230,7 @@ export const CATALOG = [
       'AI pattern': 'Multi-agent orchestration with self-correction loop',
       Agents: 'Intake → Investigator → Router (⟲) → Fix Planner',
       Products: 'PC · CC · BC · Cross-suite',
-      Input: 'Defect report + optional logs/code',
+      Input: 'Defect report + optional logs/code or Datadog log export',
       Output: 'Full case file JSON (4 agent outputs)',
       Persistence: 'Neon Postgres artifact'
     },
@@ -238,7 +238,7 @@ export const CATALOG = [
       { param: 'Product / Environment', values: 'PC / CC / BC / Cross-suite · Prod / Pre-prod / UAT / SIT / Dev' },
       { param: 'Loop threshold', values: 'Confidence < 65% triggers re-investigation' },
       { param: 'Loop budget', values: 'Max 2 extra passes (MAX_LOOPS in DefectTriage.jsx)' },
-      { param: 'Evidence', values: 'Optional logs / stack trace / code — raises confidence' }
+      { param: 'Evidence', values: 'Optional logs / stack trace / code — or load a Datadog .json/.ndjson export to pick an error' }
     ]
   }
 ]
