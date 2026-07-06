@@ -4,9 +4,11 @@ import { queryDatadogLogs, rangeToIso, TIME_RANGES } from '../lib/datadog.js'
 import {
   buildDefectReportFromError,
   buildEvidenceForError,
+  buildLogDashboard,
   filterAnalysisByService,
   loadDatadogLogFile
 } from '../lib/logLoader.js'
+import LogErrorDashboard from '../components/LogErrorDashboard.jsx'
 import {
   TRIAGE_INTAKE_SYSTEM,
   TRIAGE_INVESTIGATOR_SYSTEM,
@@ -56,6 +58,11 @@ export default function DefectTriage({ project }) {
   const visibleErrors = useMemo(() => {
     if (!logAnalysis) return []
     return filterAnalysisByService(logAnalysis, serviceFilter).errors
+  }, [logAnalysis, serviceFilter])
+
+  const dashboard = useMemo(() => {
+    if (!logAnalysis) return null
+    return buildLogDashboard(filterAnalysisByService(logAnalysis, serviceFilter))
   }, [logAnalysis, serviceFilter])
 
   function pushStep(step) {
@@ -468,87 +475,26 @@ ${JSON.stringify(routing, null, 2)}`,
 
         {logError && <div className="alert err" style={{ marginBottom: 12 }}>{logError}</div>}
 
-        {logAnalysis && visibleErrors.length > 0 && (
-          <div className="field" style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
-              <label style={{ margin: 0 }}>Errors in {logAnalysis.filename}</label>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                {logAnalysis.services.length > 1 && (
-                  <select
-                    value={serviceFilter}
-                    onChange={(e) => setServiceFilter(e.target.value)}
-                    disabled={running}
-                    style={{ fontSize: 13 }}
-                    aria-label="Filter errors by service"
-                  >
-                    <option value="all">All services ({logAnalysis.errorCount})</option>
-                    {logAnalysis.services.map((s) => (
-                      <option key={s} value={s}>
-                        {s} ({logAnalysis.errors.filter((e) => e.service === s).length})
-                      </option>
-                    ))}
-                  </select>
-                )}
-                {visibleErrors.length > 1 && (
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    disabled={running}
-                    onClick={runBulk}
-                    title={visibleErrors.length > BULK_MAX_ERRORS ? `Investigates first ${BULK_MAX_ERRORS} errors` : undefined}
-                  >
-                    Investigate all ({Math.min(visibleErrors.length, BULK_MAX_ERRORS)})
-                  </button>
-                )}
-              </div>
-            </div>
-            <p style={{ fontSize: 13.5, color: 'var(--slate)', margin: '0 0 10px' }}>
-              {visibleErrors.length} error{visibleErrors.length !== 1 ? 's' : ''} shown
-              {serviceFilter !== 'all' ? ` · filtered to ${serviceFilter}` : ''}
-              {logAnalysis.totalEntries ? ` · ${logAnalysis.totalEntries} log entries` : ''}
-              {logAnalysis.source === 'live' ? ' · live query' : ''}
-            </p>
-            {bulkProgress && (
-              <p style={{ fontSize: 13.5, color: 'var(--blue)', margin: '0 0 10px' }}>{bulkProgress}</p>
-            )}
-            <div className="log-error-list">
-              {visibleErrors.map((err) => (
-                <div
-                  key={err.id}
-                  className={`log-error-item ${selectedErrorId === err.id ? 'selected' : ''}`}
-                >
-                  <button
-                    type="button"
-                    className="log-error-select"
-                    onClick={() => selectError(logAnalysis, err.id)}
-                    disabled={running}
-                  >
-                    <span className="log-error-meta">
-                      <span className="tag red">{err.status}</span>
-                      {err.service !== 'unknown' && <span className="tag">{err.service}</span>}
-                      <span style={{ fontSize: 12.5, color: 'var(--slate)' }}>{err.timestamp}</span>
-                    </span>
-                    <span className="log-error-preview">{err.preview}</span>
-                    {err.errorKind && <span className="log-error-kind">{err.errorKind}</span>}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    disabled={running}
-                    onClick={(e) => { e.stopPropagation(); investigateError(err.id) }}
-                  >
-                    Investigate
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         <button className="btn btn-primary" onClick={() => run()} disabled={running || !defect.trim()}>
           {running && !bulkProgress ? <><span className="spinner" />Agents working…</> : 'Run triage pipeline'}
         </button>
       </div>
+
+      {logAnalysis && (
+        <LogErrorDashboard
+          dashboard={dashboard}
+          logAnalysis={logAnalysis}
+          visibleErrors={visibleErrors}
+          selectedErrorId={selectedErrorId}
+          serviceFilter={serviceFilter}
+          onServiceFilterChange={setServiceFilter}
+          running={running}
+          bulkProgress={bulkProgress}
+          onSelectError={(errorId) => selectError(logAnalysis, errorId)}
+          onInvestigate={investigateError}
+          onInvestigateAll={runBulk}
+        />
+      )}
 
       {error && <div className="alert err">{error}</div>}
 

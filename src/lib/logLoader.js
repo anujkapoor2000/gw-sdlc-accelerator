@@ -206,6 +206,81 @@ export function filterAnalysisByService(analysis, service) {
   }
 }
 
+/** Stable key for grouping similar errors into a scenario. */
+export function scenarioKey(err) {
+  const kind = err.errorKind || 'Unknown'
+  const msg = (err.message || err.preview || '').split('\n')[0].trim().slice(0, 120)
+  return `${kind}::${msg}`
+}
+
+/**
+ * Group errors into distinct scenarios (exception + message pattern).
+ * @param {object[]} errors
+ */
+export function groupErrorScenarios(errors) {
+  const map = new Map()
+  for (const err of errors) {
+    const key = scenarioKey(err)
+    if (!map.has(key)) {
+      map.set(key, {
+        id: key,
+        label: err.errorKind || (err.preview || 'Unknown error').slice(0, 100),
+        errorKind: err.errorKind || '',
+        sampleMessage: err.message || err.preview || '',
+        errors: [],
+        services: new Set(),
+        statuses: new Set(),
+        count: 0,
+        latestTimestamp: err.timestamp,
+        representativeId: err.id
+      })
+    }
+    const s = map.get(key)
+    s.errors.push(err)
+    s.count++
+    if (err.service) s.services.add(err.service)
+    s.statuses.add(err.status)
+    if (String(err.timestamp) > String(s.latestTimestamp)) s.latestTimestamp = err.timestamp
+  }
+  return [...map.values()]
+    .map((s) => ({ ...s, services: [...s.services], statuses: [...s.statuses] }))
+    .sort((a, b) => b.count - a.count)
+}
+
+/**
+ * Build dashboard summary stats from a log analysis.
+ * @param {object} analysis
+ */
+export function buildLogDashboard(analysis) {
+  if (!analysis) return null
+  const scenarios = groupErrorScenarios(analysis.errors)
+  const serviceCounts = {}
+  for (const err of analysis.errors) {
+    const svc = err.service || 'unknown'
+    serviceCounts[svc] = (serviceCounts[svc] || 0) + 1
+  }
+  const timestamps = analysis.errors.map((e) => e.timestamp).filter(Boolean).sort()
+  const exceptionTypes = [...new Set(analysis.errors.map((e) => e.errorKind).filter(Boolean))]
+
+  return {
+    filename: analysis.filename,
+    format: analysis.format,
+    source: analysis.source,
+    meta: analysis.meta,
+    totalEntries: analysis.totalEntries,
+    errorCount: analysis.errorCount,
+    scenarioCount: scenarios.length,
+    services: analysis.services,
+    serviceCounts,
+    exceptionTypes,
+    errorRate: analysis.totalEntries
+      ? Math.round((analysis.errorCount / analysis.totalEntries) * 100)
+      : 0,
+    timeRange: timestamps.length ? { from: timestamps[0], to: timestamps[timestamps.length - 1] } : null,
+    scenarios
+  }
+}
+
 /**
  * Build a defect report from a selected error (for the defect textarea).
  * @param {object} error
