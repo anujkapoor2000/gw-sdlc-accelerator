@@ -7,7 +7,7 @@ AI-assisted lifecycle tooling for Guidewire InsuranceSuite delivery — plan, bu
 | Phase | Module | What it does |
 |---|---|---|
 | Plan | **Story Forge** | Raw requirements → sprint-ready stories: Gherkin ACs, Guidewire touchpoints (entities, PCF, plugins, Cloud API), Fibonacci points with rationale, dependencies, open questions for the BA |
-| Build | **Code Review Copilot** | Principal-level review of Gosu / PCF / integration / batch code. Severity-tagged findings (critical → info) across standards, performance, security and upgrade/Cloud safety, with concrete fixes and a code-health score |
+| Build | **Code Review Copilot** | Principal-level review of Gosu / PCF / integration / batch code. Severity-tagged findings (critical → info) across standards, performance, security and upgrade/Cloud safety, with concrete fixes and a code-health score. Can merge in findings from external static analysis (SonarQube/SonarCloud, ESLint, Checkstyle reports) alongside the LLM review |
 | Test | **Test Strategist** | Derives executable test cases from stories, code or defects — pyramid-balanced across GUnit, GT-API and GT-UI, with test data to stage and automation notes |
 | Test | **Flow Automator** | Generates keyword-driven **Katalon Studio** UI automation for common Guidewire flows (submission→bind, FNOL, billing payment, Jutro quote-and-buy) across PC/CC/BC/Jutro. Ships alongside a ready-to-run Katalon project in [`/katalon`](katalon/) |
 | Test | **Test Migrator** | Takes a client's existing **manual** test cases (pasted as-is from Excel/ALM/Zephyr/qTest) and converts each into a runnable automated script — Katalon (Groovy), **Guidewire GT** (GT-UI / GT-API), **Playwright** (TypeScript), Selenium + Java, or Cucumber BDD. Per case it also flags the **gaps** that would block or destabilise automation and itemises the **test data** the script needs, with a generate / stage / existing-record strategy for each |
@@ -101,6 +101,7 @@ for setup, running headless in CI, and adapting locators to a customised environ
 
 - **New module**: add a system prompt in `src/lib/prompts.js` (demand strict JSON), a module component in `src/modules/`, and a rail entry in `src/App.jsx`
 - **New review profile**: extend `PROFILES` in `CodeReview.jsx` — the prompt picks up the selected labels automatically
+- **New external static-analysis tool** (beyond SonarQube/ESLint/Checkstyle): add a parser to `src/lib/externalFindings.js` that normalizes the tool's report into `{ source, severity, category, location, issue, recommendation, standardRef }`, and register it in `EXTERNAL_TOOLS` — a live SonarQube/SonarCloud Web API proxy (`api/sonarqube.js`, same pattern as `api/datadog.js`) is a natural follow-up to the current paste/upload flow
 - **Jira/ADO export**: story and test JSON shapes are import-ready; map fields in a small transform
 
 ---

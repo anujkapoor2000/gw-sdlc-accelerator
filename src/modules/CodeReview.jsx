@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { callClaude, parseModelJson } from '../lib/api.js'
 import { CODE_REVIEW_SYSTEM } from '../lib/prompts.js'
+import { EXTERNAL_TOOLS, parseExternalReport } from '../lib/externalFindings.js'
 import SaveToProject from '../components/SaveToProject.jsx'
 import { useRequestCost, RequestCost } from '../components/RequestCost.jsx'
 
@@ -23,14 +24,25 @@ export default function CodeReview({ project }) {
   const [error, setError] = useState('')
   const [result, setResult] = useState(null)
   const [filter, setFilter] = useState('all')
+  const [externalTool, setExternalTool] = useState('none')
+  const [externalReport, setExternalReport] = useState('')
+  const [externalError, setExternalError] = useState('')
   const reqCost = useRequestCost()
 
   function toggleProfile(id) {
     setProfiles((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
   }
 
+  function onExternalFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setExternalReport(String(reader.result || ''))
+    reader.readAsText(file)
+  }
+
   async function run() {
-    setBusy(true); setError(''); setResult(null); reqCost.reset()
+    setBusy(true); setError(''); setExternalError(''); setResult(null); reqCost.reset()
     try {
       const numbered = code.split('\n').map((l, i) => `${i + 1}: ${l}`).join('\n')
       const prompt = `Product: ${product}
@@ -40,7 +52,18 @@ Review profiles selected: ${profiles.map((id) => PROFILES.find((p) => p.id === i
 Code to review (line-numbered):
 ${numbered}`
       const text = await callClaude({ system: CODE_REVIEW_SYSTEM, prompt, maxTokens: 16000, onUsage: reqCost.onUsage })
-      setResult(parseModelJson(text))
+      const parsed = parseModelJson(text)
+
+      if (externalTool !== 'none' && externalReport.trim()) {
+        try {
+          const external = parseExternalReport(externalTool, externalReport)
+          parsed.findings = [...parsed.findings.map((f) => ({ ...f, source: f.source || 'llm' })), ...external]
+        } catch (e) {
+          setExternalError(`Could not read ${EXTERNAL_TOOLS.find((t) => t.id === externalTool)?.label || externalTool} report: ${e.message}`)
+        }
+      }
+
+      setResult(parsed)
       setFilter('all')
     } catch (e) {
       setError(e.message)
@@ -48,6 +71,12 @@ ${numbered}`
       setBusy(false)
     }
   }
+
+  const counts = useMemo(() => {
+    const c = { critical: 0, major: 0, minor: 0, info: 0 }
+    for (const f of result?.findings || []) if (c[f.severity] !== undefined) c[f.severity]++
+    return c
+  }, [result])
 
   const findings = useMemo(() => {
     if (!result) return []
@@ -99,12 +128,35 @@ ${numbered}`
             placeholder={'Paste a Gosu class, enhancement, PCF snippet, plugin or batch process…\n\nuses gw.api.database.Query\n\nclass PolicyHoldFinder {\n  function findHolds(periods : List<PolicyPeriod>) {\n    for (p in periods) {\n      var q = Query.make(UWIssue).compare("PolicyPeriod", Equals, p).select()\n      ...'}
           />
         </div>
+        <div className="field">
+          <label htmlFor="cr-ext-tool">External static analysis (optional)</label>
+          <select id="cr-ext-tool" value={externalTool} onChange={(e) => setExternalTool(e.target.value)}>
+            <option value="none">None</option>
+            {EXTERNAL_TOOLS.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+          </select>
+        </div>
+        {externalTool !== 'none' && (
+          <div className="field">
+            <label htmlFor="cr-ext-report">
+              Paste or upload the {EXTERNAL_TOOLS.find((t) => t.id === externalTool)?.label} report — its findings are merged into the results below alongside the LLM review.
+            </label>
+            <textarea
+              id="cr-ext-report"
+              value={externalReport}
+              onChange={(e) => setExternalReport(e.target.value)}
+              placeholder={externalTool === 'checkstyle' ? 'Paste Checkstyle XML output…' : 'Paste the report JSON…'}
+              rows={6}
+            />
+            <input type="file" accept=".json,.xml,.txt" onChange={onExternalFile} style={{ marginTop: 8 }} />
+          </div>
+        )}
         <button className="btn btn-primary" onClick={run} disabled={busy || !code.trim() || profiles.length === 0}>
           {busy ? <><span className="spinner" />Reviewing…</> : 'Run review'}
         </button>
       </div>
 
       {error && <div className="alert err">{error}</div>}
+      {externalError && <div className="alert err">{externalError}</div>}
 
       {result && (
         <>
@@ -113,10 +165,10 @@ ${numbered}`
               <div className="k">Code health</div>
               <div className="v">{result.summary.score}/100</div>
             </div>
-            <div className="score-tile"><div className="k">Critical</div><div className="v" style={{ color: 'var(--crit)' }}>{result.summary.criticalCount}</div></div>
-            <div className="score-tile"><div className="k">Major</div><div className="v" style={{ color: 'var(--warn)' }}>{result.summary.majorCount}</div></div>
-            <div className="score-tile"><div className="k">Minor</div><div className="v">{result.summary.minorCount}</div></div>
-            <div className="score-tile"><div className="k">Info</div><div className="v">{result.summary.infoCount}</div></div>
+            <div className="score-tile"><div className="k">Critical</div><div className="v" style={{ color: 'var(--crit)' }}>{counts.critical}</div></div>
+            <div className="score-tile"><div className="k">Major</div><div className="v" style={{ color: 'var(--warn)' }}>{counts.major}</div></div>
+            <div className="score-tile"><div className="k">Minor</div><div className="v">{counts.minor}</div></div>
+            <div className="score-tile"><div className="k">Info</div><div className="v">{counts.info}</div></div>
           </div>
 
           <div className="panel">
@@ -154,6 +206,7 @@ ${numbered}`
                 <span className={`sev ${f.severity}`}>{f.severity}</span>
                 <span className="cat">{f.category}</span>
                 <span className="loc">{f.location}</span>
+                {f.source && f.source !== 'llm' && <span className="src">{f.source}</span>}
               </div>
               <p>{f.issue}</p>
               <p className="rec"><b>Fix:</b> {f.recommendation}</p>
