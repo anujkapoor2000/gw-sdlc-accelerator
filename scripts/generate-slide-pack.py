@@ -1,12 +1,27 @@
 #!/usr/bin/env python3
-"""Generate McKinsey-style GW SDLC Accelerator slide pack (.pptx)."""
+"""Generate McKinsey-style GW SDLC Accelerator slide pack (.pptx).
 
+Each of the 7 AI accelerators gets a dedicated slide with:
+  - Action title + so-what bar (McKinsey convention)
+  - Purpose, worked example, productionalisation path
+  - Demo screenshot or GIF (right column)
+  - ROI metric card
+"""
+
+from __future__ import annotations
+
+import subprocess
+import sys
 from pathlib import Path
 
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Inches, Pt
+
+ROOT = Path(__file__).resolve().parent.parent
+DEMO_DIR = ROOT / "docs" / "media"
+GIF_DIR = ROOT / "public" / "media"
 
 # McKinsey-inspired palette
 NAVY = RGBColor(0x05, 0x1C, 0x2C)
@@ -21,7 +36,122 @@ TEXT = RGBColor(0x1A, 0x2B, 0x3C)
 
 SLIDE_W = Inches(13.333)
 SLIDE_H = Inches(7.5)
-OUT = Path(__file__).resolve().parent.parent / "docs" / "accelerators-slide-pack.pptx"
+OUT = ROOT / "docs" / "accelerators-slide-pack.pptx"
+
+ACCELERATORS = [
+    {
+        "id": "story-forge",
+        "name": "Story Forge",
+        "phase": "Plan",
+        "action": "Story Forge converts raw requirements into sprint-ready, Guidewire-mapped user stories in minutes",
+        "so_what": "Requirements in, sprint-ready stories out — Gherkin ACs, GW touchpoints and Fibonacci points pre-populated; fewer AC gaps reach SIT.",
+        "purpose": "Eliminates the blank-page problem for BAs. Produces INVEST stories with negative-path ACs, mapped entities/PCF/plugins, and Jira-ready JSON.",
+        "example": "Input: 'Apply multi-vehicle discount on mid-term PA change.' → Output: ST-1 with Given/When/Then, touchpoints (PolicyLine, RatingPlugin), 5 pts, open question on eligibility.",
+        "prod": [
+            "Pilot on live backlog grooming; map JSON → Jira/ADO fields",
+            "Load client story standards into Project knowledge (RAG)",
+            "Add SSO + tenant scoping before production client data",
+        ],
+        "roi": "40–60%",
+        "roi_label": "Less effort per story",
+    },
+    {
+        "id": "code-review",
+        "name": "Code Review Copilot",
+        "phase": "Build",
+        "action": "Code Review Copilot delivers principal-level Guidewire review on every commit — catching defects at desk-check cost",
+        "so_what": "Defects caught at review cost ~10× less than at UAT — zero senior reviewer calendar time; bundled GW Cloud standards per profile.",
+        "purpose": "Reviews Gosu, PCF, integration, GX and batch code. Severity findings (critical→info), upgrade-safety flags, code-health score, optional Sonar merge.",
+        "example": "Input: Gosu with gw.transaction in PCF onClick → Output: critical (UI-layer transaction), major (query in loop), score 62, concrete fix naming GW construct.",
+        "prod": [
+            "Pre-PR gate in CI pipeline; persist findings as artifacts",
+            "Index client coding standards into Project knowledge",
+            "Golden eval set in CI on prompt/model changes",
+        ],
+        "roi": "30%",
+        "roi_label": "Fewer review cycles",
+    },
+    {
+        "id": "test-strategist",
+        "name": "Test Strategist",
+        "phase": "Test",
+        "action": "Test Strategist enforces pyramid discipline — assigning GUnit, GT-API, GT-UI or Manual per case",
+        "so_what": "Test design keeps pace with development — harness selection enforced, test data staged upfront, full AC traceability.",
+        "purpose": "Derives executable cases from stories, code or defects. Maintains pyramid health; lists preconditions and data to stage before execution.",
+        "example": "Input: FNOL user story + ACs → Output: TC-1 GT-UI journey, TC-2 GUnit reserve rules, TC-3 GT-API claim create; data: in-force PA policy, vehicle VIN.",
+        "prod": [
+            "Webhook from ALM to auto-feed sprint stories",
+            "Export to Zephyr/qTest via CSV transform",
+            "Pair GT-UI cases with Flow Automator scripts",
+        ],
+        "roi": "50%",
+        "roi_label": "Faster test-case design",
+    },
+    {
+        "id": "flow-automator",
+        "name": "Flow Automator",
+        "phase": "Test",
+        "action": "Flow Automator scaffolds keyword-driven Katalon UI automation for common Guidewire journeys in minutes, not days",
+        "so_what": "Regression UI packs in minutes — real /katalon @Keyword signatures injected into prompts, not guessed method names.",
+        "purpose": "Generates Katalon Groovy for PC/CC/BC/Jutro flows (submission→bind, FNOL, billing, quote-and-buy). Matches bundled keyword libraries.",
+        "example": "Input: PC — 'PA submission → quote → bind' → Output: Groovy calling createPersonAccount, startSubmission, quote, issuePolicy + prerequisites list.",
+        "prod": [
+            "Open /katalon in Katalon Studio; adapt locators per env",
+            "Run katalonc headless in CI with profile secrets",
+            "Regenerate after PCF customisation via Flow Automator",
+        ],
+        "roi": "60%+",
+        "roi_label": "Faster UI automation draft",
+    },
+    {
+        "id": "test-migrator",
+        "name": "Test Migrator",
+        "phase": "Test",
+        "action": "Test Migrator converts legacy manual regression packs into runnable automation — with honest gap analysis per case",
+        "so_what": "Manual pack → automation drafts in minutes — per-case verdict (automate / fix-then-automate / keep manual) plus test-data manifest.",
+        "purpose": "Ingests Excel/Zephyr/qTest cases (single or bulk). Converts to Katalon, GT, Playwright, Selenium or Cucumber; surfaces blocking gaps.",
+        "example": "Input: TC-PC-014 manual bind from Excel → Output: Katalon script, verdict automate-with-fixes, gap (missing underwriter role), data: person account (generate).",
+        "prod": [
+            "Batch-convert client UAT pack in pilot weeks 2–4",
+            "Remediate gaps before promoting scripts to CI",
+            "Wire Katalon output into /katalon regression suite",
+        ],
+        "roi": "70%+",
+        "roi_label": "Faster manual conversion",
+    },
+    {
+        "id": "release-navigator",
+        "name": "Release Navigator",
+        "phase": "Release",
+        "action": "Release Navigator reveals what the next ski release does to your customisations — before it lands",
+        "so_what": "Upgrade planning from evidence, not guesswork — CI/CD maturity score + per-area impact, remediation and regression focus.",
+        "purpose": "16-practice readiness self-check plus AI impact analysis of customisation inventory vs target ski release; effort band and pre-upgrade checklist.",
+        "example": "Input: Palisades, PC+CC, inventory (IG, entity extensions, PCF) → Output: medium risk, high IG impact, 8-step checklist, targeted regression list.",
+        "prod": [
+            "Maintain inventory in Project knowledge; re-run each ski release",
+            "Attach official GW release notes to RAG corpus",
+            "Feed regression focus into Test Strategist + Katalon",
+        ],
+        "roi": "20–30%",
+        "roi_label": "Less upgrade regression effort",
+    },
+    {
+        "id": "defect-triage",
+        "name": "Defect Triage Agent",
+        "phase": "Operate",
+        "action": "Defect Triage Agent runs a four-agent pipeline with self-correction — L2/L3 triage in minutes, 24/7",
+        "so_what": "The flagship agentic module — confidence-gated loop (max 2 passes) with live timeline; ideal for client showcases.",
+        "purpose": "Intake → Investigator → Router (loops if confidence < 65%) → Fix Planner. Datadog log integration; bulk triage up to 5 errors.",
+        "example": "Input: Payment posting failure + Datadog logs → Output: P2 Billing, 72% confidence hypothesis, workaround, permanent fix, regression cases.",
+        "prod": [
+            "Connect DD_API_KEY for live log evidence",
+            "Index client runbooks in Project knowledge",
+            "Push case file JSON to ServiceNow / Jira enrichment",
+        ],
+        "roi": "35–50%",
+        "roi_label": "Faster mean-time-to-triage",
+    },
+]
 
 
 def blank_slide(prs):
@@ -29,7 +159,7 @@ def blank_slide(prs):
 
 
 def fill_rect(slide, left, top, width, height, color):
-    shape = slide.shapes.add_shape(1, left, top, width, height)  # MSO_SHAPE.RECTANGLE
+    shape = slide.shapes.add_shape(1, left, top, width, height)
     shape.fill.solid()
     shape.fill.fore_color.rgb = color
     shape.line.fill.background()
@@ -51,6 +181,12 @@ def add_textbox(slide, left, top, width, height, text, size=14, bold=False, colo
     run.font.color.rgb = color
     run.font.name = font_name
     return box
+
+
+def add_labeled_block(slide, left, top, width, label, body, label_size=9, body_size=10):
+    add_textbox(slide, left, top, width, Inches(0.22), label, size=label_size, bold=True, color=TEAL)
+    add_textbox(slide, left, top + Inches(0.2), width, Inches(0.55), body, size=body_size, color=TEXT)
+    return top + Inches(0.78)
 
 
 def add_bullets(slide, left, top, width, height, items, size=11, color=TEXT, spacing=6):
@@ -88,8 +224,7 @@ def add_header_slide(slide, action_title, subtitle):
 
 
 def add_so_what(slide, text, top=Inches(1.55)):
-    shape = fill_rect(slide, Inches(0.5), top, Inches(12.3), Inches(0.65), GRAY_100)
-    # teal left bar
+    fill_rect(slide, Inches(0.5), top, Inches(12.3), Inches(0.65), GRAY_100)
     fill_rect(slide, Inches(0.5), top, Inches(0.06), Inches(0.65), TEAL)
     add_textbox(slide, Inches(0.7), top + Inches(0.08), Inches(12), Inches(0.5),
                 text, size=11, bold=True, color=NAVY)
@@ -109,11 +244,9 @@ def add_table(slide, left, top, width, headers, rows, col_widths=None):
     n_cols = len(headers)
     table_shape = slide.shapes.add_table(n_rows, n_cols, left, top, width, Inches(0.32 * n_rows))
     table = table_shape.table
-
     if col_widths:
         for i, w in enumerate(col_widths):
             table.columns[i].width = w
-
     for j, h in enumerate(headers):
         cell = table.cell(0, j)
         cell.text = h
@@ -123,7 +256,6 @@ def add_table(slide, left, top, width, headers, rows, col_widths=None):
             p.font.size = Pt(8)
             p.font.bold = True
             p.font.color.rgb = WHITE
-
     for i, row in enumerate(rows, start=1):
         for j, val in enumerate(row):
             cell = table.cell(i, j)
@@ -139,451 +271,253 @@ def add_table(slide, left, top, width, headers, rows, col_widths=None):
     return table_shape
 
 
-def slide_title(prs, page):
+def demo_path(module_id: str) -> Path | None:
+    gif = GIF_DIR / f"{module_id}.gif"
+    png = DEMO_DIR / f"{module_id}-demo.png"
+    if gif.exists():
+        return gif
+    if png.exists():
+        return png
+    return None
+
+
+def add_demo_image(slide, module_id: str):
+    path = demo_path(module_id)
+    if not path:
+        fill_rect(slide, Inches(7.0), Inches(2.35), Inches(5.8), Inches(4.35), GRAY_100)
+        add_textbox(slide, Inches(7.2), Inches(4.2), Inches(5.4), Inches(0.5),
+                    "Demo preview\n(run npm run slides to generate)", size=10, color=GRAY_400, align=PP_ALIGN.CENTER)
+        return
+    # McKinsey layout: demo frame with teal top rule
+    fill_rect(slide, Inches(7.0), Inches(2.35), Inches(5.8), Inches(4.35), GRAY_100)
+    fill_rect(slide, Inches(7.0), Inches(2.35), Inches(5.8), Inches(0.06), TEAL)
+    add_textbox(slide, Inches(7.15), Inches(2.42), Inches(3), Inches(0.2),
+                "LIVE DEMO", size=7, bold=True, color=TEAL)
+    slide.shapes.add_picture(str(path), Inches(7.15), Inches(2.65), Inches(5.5), Inches(3.9))
+
+
+def slide_accelerator(prs, acc: dict, page: int) -> int:
+    slide = blank_slide(prs)
+    add_header_slide(slide, acc["action"], f"{acc['phase']} · {acc['name']}")
+    add_so_what(slide, acc["so_what"])
+
+    y = Inches(2.35)
+    y = add_labeled_block(slide, Inches(0.5), y, Inches(6.2), "PURPOSE", acc["purpose"])
+    y = add_labeled_block(slide, Inches(0.5), y, Inches(6.2), "EXAMPLE", acc["example"], body_size=9)
+    add_textbox(slide, Inches(0.5), y, Inches(2), Inches(0.22), "PRODUCTIONALISE", size=9, bold=True, color=TEAL)
+    add_bullets(slide, Inches(0.5), y + Inches(0.22), Inches(6.2), Inches(1.5), acc["prod"], size=9, spacing=4)
+
+    add_metric_card(slide, Inches(0.5), Inches(6.15), acc["roi"], acc["roi_label"], width=Inches(2.4))
+    add_demo_image(slide, acc["id"])
+    add_footer(slide, page)
+    return page
+
+
+def ensure_demos():
+    demo_script = ROOT / "scripts" / "generate-accelerator-demos.py"
+    if demo_script.exists():
+        subprocess.run([sys.executable, str(demo_script)], check=True)
+    for gif_script in ["generate-code-review-gif.py", "generate-defect-triage-gif.py"]:
+        path = ROOT / "scripts" / gif_script
+        if path.exists():
+            subprocess.run([sys.executable, str(path)], check=False)
+
+
+def slide_title(prs):
     slide = blank_slide(prs)
     fill_rect(slide, Inches(0), Inches(0), SLIDE_W, SLIDE_H, NAVY)
     fill_rect(slide, Inches(0), Inches(7.35), SLIDE_W, Inches(0.15), TEAL)
     add_textbox(slide, Inches(0.8), Inches(1.8), Inches(10), Inches(0.4),
                 "NTT DATA GUIDEWIRE PRACTICE", size=10, color=TEAL)
     add_textbox(slide, Inches(0.8), Inches(2.3), Inches(10), Inches(1.2),
-                "GW SDLC Accelerator", size=44, color=WHITE)
-    add_textbox(slide, Inches(0.8), Inches(3.5), Inches(9), Inches(0.8),
-                "AI-assisted lifecycle tooling for Guidewire InsuranceSuite — from requirements to release and operate",
+                "GuidewireAI\nSDLC Test Accelerators", size=40, color=WHITE)
+    add_textbox(slide, Inches(0.8), Inches(3.6), Inches(9), Inches(0.8),
+                "Seven AI modules for Guidewire InsuranceSuite — purpose, demo, examples & productionalisation",
                 size=16, color=GRAY_400)
     add_textbox(slide, Inches(0.8), Inches(5.8), Inches(10), Inches(0.6),
-                "GuidewireAI · Internal Accelerator v1.0\nJuly 2026 · Confidential — For Internal & Client Use",
+                "McKinsey-style client pack · July 2026 · Confidential",
                 size=10, color=GRAY_400)
-    return slide
 
 
 def slide_section(prs, num, title, desc):
     slide = blank_slide(prs)
     fill_rect(slide, Inches(0), Inches(0), SLIDE_W, SLIDE_H, NAVY_MID)
-    add_textbox(slide, Inches(0.8), Inches(2.2), Inches(2), Inches(1.2),
-                num, size=72, color=TEAL)
-    add_textbox(slide, Inches(0.8), Inches(3.5), Inches(10), Inches(0.8),
-                title, size=32, color=WHITE)
-    add_textbox(slide, Inches(0.8), Inches(4.4), Inches(8), Inches(0.8),
-                desc, size=14, color=GRAY_400)
-    return slide
+    add_textbox(slide, Inches(0.8), Inches(2.2), Inches(2), Inches(1.2), num, size=72, color=TEAL)
+    add_textbox(slide, Inches(0.8), Inches(3.5), Inches(10), Inches(0.8), title, size=32, color=WHITE)
+    add_textbox(slide, Inches(0.8), Inches(4.4), Inches(8), Inches(0.8), desc, size=14, color=GRAY_400)
 
 
 def slide_next_steps(prs):
     slide = blank_slide(prs)
     fill_rect(slide, Inches(0), Inches(0), SLIDE_W, SLIDE_H, NAVY)
     fill_rect(slide, Inches(0), Inches(7.35), SLIDE_W, Inches(0.15), TEAL)
-    add_textbox(slide, Inches(0.8), Inches(1.8), Inches(4), Inches(0.4),
-                "NEXT STEPS", size=10, color=TEAL)
+    add_textbox(slide, Inches(0.8), Inches(1.8), Inches(4), Inches(0.4), "NEXT STEPS", size=10, color=TEAL)
     add_textbox(slide, Inches(0.8), Inches(2.3), Inches(10), Inches(0.8),
                 "Deploy. Demo. Deliver.", size=36, color=WHITE)
     add_bullets(slide, Inches(0.8), Inches(3.3), Inches(9), Inches(2.2), [
-        "Deploy to Vercel with Anthropic + Neon credentials",
-        "Schedule a client showcase using the live application",
-        "Open /katalon in Katalon Studio for hands-on automation demo",
-        "Update ROI benchmarks in catalog.js as evidence firms up",
+        "Deploy to Vercel — Anthropic + Neon + optional Voyage for RAG embeddings",
+        "Schedule client showcase: Defect Triage + Flow Automator + Katalon live",
+        "Pilot weeks 2–4 on live client data; measure ROI per module",
+        "Harden: SSO, rate limits, CI evals — see productionalisation roadmap",
     ], size=13, color=GRAY_400, spacing=10)
     add_textbox(slide, Inches(0.8), Inches(5.8), Inches(10), Inches(0.6),
-                "NTT DATA Guidewire Practice · GuidewireAI\ngw-sdlc-accelerator · Internal v1.0 · July 2026",
+                "NTT DATA Guidewire Practice · GuidewireAI · gw-sdlc-accelerator",
                 size=11, color=TEAL)
-    return slide
 
 
 def build():
+    ensure_demos()
+
     prs = Presentation()
     prs.slide_width = SLIDE_W
     prs.slide_height = SLIDE_H
     page = 0
 
-    # 1 Title
-    slide_title(prs, page := 1)
+    slide_title(prs)
 
-    # 2 Executive Summary
+    # Executive summary
     slide = blank_slide(prs)
     add_header_slide(slide,
-        "Seven AI accelerators span the full Guidewire delivery lifecycle — compressing time-to-value at every gate",
+        "Seven AI accelerators compress manual work across the Guidewire testing lifecycle — from stories to triage",
         "Executive Summary")
     add_so_what(slide,
-        "The GW SDLC Accelerator packages proven AI patterns into a single web application, complemented by a ready-to-run Katalon automation library.")
-    add_textbox(slide, Inches(0.5), Inches(2.35), Inches(2), Inches(0.25),
-                "THE CHALLENGE", size=9, bold=True, color=TEAL)
+        "GuidewireAI packages Claude-powered modules, bundled reference corpora (/katalon, GW standards), and per-project RAG into one web application.")
+    add_textbox(slide, Inches(0.5), Inches(2.35), Inches(2), Inches(0.25), "THE CHALLENGE", size=9, bold=True, color=TEAL)
     add_bullets(slide, Inches(0.5), Inches(2.6), Inches(5.8), Inches(2.2), [
-        "Guidewire programmes stall on repetitive manual work across story writing, code review, test design, UI automation, upgrade planning, and defect triage",
-        "Delivery centres lack consistent standards across geographies and seniority levels",
-        "UI test packs rot with every customisation and ski release",
+        "Test design, UI automation, manual-to-auto conversion and triage consume 40–60% of sprint capacity",
+        "Inconsistent standards across delivery centres; UI regression rots with every customisation",
         "AMS teams face 24/7 defect volume with limited L2/L3 capacity",
     ], size=10)
-    add_textbox(slide, Inches(6.8), Inches(2.35), Inches(2), Inches(0.25),
-                "OUR RESPONSE", size=9, bold=True, color=TEAL)
+    add_textbox(slide, Inches(6.8), Inches(2.35), Inches(2), Inches(0.25), "OUR RESPONSE", size=9, bold=True, color=TEAL)
     add_bullets(slide, Inches(6.8), Inches(2.6), Inches(5.8), Inches(2.2), [
-        "7 AI modules mapped to Plan → Build → Test → Release → Operate",
-        "1 Katalon accelerator with 12 ready-to-run flows across PC, CC, BC & Jutro",
-        "Powered by Claude Sonnet via secure server-side API proxy",
-        "All outputs persisted to Neon Postgres and exportable as JSON",
-        "Indicative ROI: 30–70% effort reduction across targeted activities",
+        "7 AI modules: Plan → Build → Test → Release → Operate",
+        "Bundled reference material + per-project knowledge (RAG)",
+        "Katalon companion: 12 ready-to-run flows (PC · CC · BC · Jutro)",
+        "Indicative ROI: 30–70% effort reduction on targeted activities",
     ], size=10)
-    add_metric_card(slide, Inches(0.5), Inches(5.1), "7", "AI accelerators live")
-    add_metric_card(slide, Inches(3.6), Inches(5.1), "12", "Katalon flows shipped")
-    add_metric_card(slide, Inches(6.7), Inches(5.1), "5", "SDLC phases covered")
-    add_metric_card(slide, Inches(9.8), Inches(5.1), "5", "Automation frameworks supported")
+    add_metric_card(slide, Inches(0.5), Inches(5.1), "7", "AI accelerators")
+    add_metric_card(slide, Inches(3.6), Inches(5.1), "12", "Katalon flows")
+    add_metric_card(slide, Inches(6.7), Inches(5.1), "5", "SDLC phases")
+    add_metric_card(slide, Inches(9.8), Inches(5.1), "RAG", "Per-project knowledge")
     add_footer(slide, page := 2)
 
-    # 3 Lifecycle
+    # Lifecycle
     slide = blank_slide(prs)
     add_header_slide(slide,
-        "Each SDLC phase has a dedicated accelerator — creating a connected value chain from backlog to production",
+        "Each SDLC phase has a dedicated accelerator — a connected value chain from backlog to production",
         "Lifecycle Architecture")
     phases = [
-        ("PLAN", "Story Forge", "Requirements → INVEST stories\nGherkin ACs · GW touchpoints"),
-        ("BUILD", "Code Review Copilot", "Gosu · PCF · Integration\nSeverity findings · Upgrade-safety"),
-        ("TEST", "Test Strategist · Flow Automator · Test Migrator", "Pyramid cases · Katalon scripts\nManual → automation"),
-        ("RELEASE", "Release Navigator", "CI/CD maturity · Ski-release impact\nPre-upgrade checklist"),
-        ("OPERATE", "Defect Triage Agent", "4-agent pipeline · Self-correction\n24/7 first-pass triage"),
+        ("PLAN", "Story Forge"),
+        ("BUILD", "Code Review"),
+        ("TEST", "Test Strategist · Flow Automator · Test Migrator"),
+        ("RELEASE", "Release Navigator"),
+        ("OPERATE", "Defect Triage Agent"),
     ]
     x = Inches(0.4)
     w = Inches(2.45)
-    for label, box, modules in phases:
+    for label, box in phases:
         add_textbox(slide, x, Inches(1.55), w, Inches(0.25), label, size=7, bold=True, color=GRAY_400, align=PP_ALIGN.CENTER)
         fill_rect(slide, x, Inches(1.85), w, Inches(0.55), NAVY)
         add_textbox(slide, x + Inches(0.05), Inches(1.9), w - Inches(0.1), Inches(0.45),
                     box, size=8, bold=True, color=WHITE, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
-        add_textbox(slide, x, Inches(2.5), w, Inches(0.7), modules, size=7, color=GRAY_600, align=PP_ALIGN.CENTER)
         x += w + Inches(0.12)
-    add_textbox(slide, Inches(0.5), Inches(3.4), Inches(2), Inches(0.25),
-                "TESTING ACCELERATORS (4)", size=9, bold=True, color=TEAL)
-    add_bullets(slide, Inches(0.5), Inches(3.65), Inches(5.8), Inches(2.5), [
-        "Story Forge — eliminates the blank-page problem for BAs",
-        "Test Strategist — keeps test design pace with development",
-        "Flow Automator — scaffolds Katalon UI regression in minutes",
-        "Test Migrator — converts legacy manual packs to automation",
-    ], size=10)
-    add_textbox(slide, Inches(6.8), Inches(3.4), Inches(2.5), Inches(0.25),
-                "ANALYSIS ACCELERATORS (3)", size=9, bold=True, color=TEAL)
-    add_bullets(slide, Inches(6.8), Inches(3.65), Inches(5.8), Inches(2.5), [
-        "Code Review Copilot — principal-level review on every commit-sized chunk",
-        "Release Navigator — evidence-based upgrade planning",
-        "Defect Triage Agent — autonomous multi-agent production triage",
-    ], size=10)
+    add_table(slide, Inches(0.5), Inches(2.7), Inches(12.3),
+              ["Accelerator", "Phase", "Primary testing value"],
+              [[a["name"], a["phase"], a["roi_label"]] for a in ACCELERATORS],
+              [Inches(2.2), Inches(1.0), Inches(9.1)])
     add_footer(slide, page := 3)
 
-    # 4 Section Plan & Build
-    slide_section(prs, "01", "Plan & Build Accelerators",
-                  "Front-load quality at the requirements and code gates — where defects are cheapest to fix")
+    slide_section(prs, "01", "The seven AI accelerators",
+                  "Each slide: purpose · worked example · demo preview · productionalisation path")
 
-    # 5 Story Forge
+    page = 3
+    for acc in ACCELERATORS:
+        page = slide_accelerator(prs, acc, page + 1)
+
+    slide_section(prs, "02", "Productionalise the suite",
+                  "From internal demo to client-ready, governed enterprise service")
+
+    # Production roadmap
     slide = blank_slide(prs)
     add_header_slide(slide,
-        "Story Forge converts raw requirements into sprint-ready, Guidewire-mapped user stories in minutes",
-        "Plan · Story Forge")
-    add_so_what(slide, "Requirements in, sprint-ready stories out — with Gherkin ACs, Guidewire touchpoints, and Fibonacci estimates pre-populated.")
-    add_bullets(slide, Inches(0.5), Inches(2.35), Inches(6), Inches(3.5), [
-        "Ingests BRD extracts, workshop notes, emails — any free-text requirements",
-        "Produces INVEST-compliant user stories with Gherkin acceptance criteria",
-        "Maps each story to Guidewire constructs: entities, PCF, plugins, Cloud API",
-        "Generates Fibonacci point estimates with rationale and explicit dependencies",
-        "Surfaces open questions for the BA — negative-path ACs by default",
-        "Output is JSON, import-ready for Jira or Azure DevOps",
-    ], size=10)
-    add_metric_card(slide, Inches(7), Inches(2.35), "40–60%", "Less effort per story written")
-    add_metric_card(slide, Inches(10.1), Inches(2.35), "~2 days", "Saved per grooming sprint")
-    add_table(slide, Inches(7), Inches(3.7), Inches(5.8),
-              ["Parameter", "Values"],
+        "A four-phase roadmap moves GuidewireAI from demo to enterprise scale without re-architecting",
+        "Productionalisation Roadmap")
+    add_so_what(slide, "Phase 0 works today on Vercel + Anthropic + Neon. Phases 1–3 close auth, tenancy, CI evals and Katalon automation gates.")
+    add_table(slide, Inches(0.5), Inches(2.35), Inches(12.3),
+              ["Phase", "Goal", "Key work"],
               [
-                  ["Primary product", "PolicyCenter · ClaimCenter · BillingCenter · Cross-suite"],
-                  ["Input", "Free-text requirements"],
-                  ["AI pattern", "Structured generation (single-pass)"],
-                  ["Output", "Epic + stories JSON → Neon Postgres"],
+                  ["0 — Now", "Internal / client demo", "Vercel deploy; bundled reference + RAG; /katalon open in Studio"],
+                  ["1 — Pilot", "Named users, safe pilot", "SSO, rate limits, input validation, DB migrations, CI build gate"],
+                  ["2 — Client-ready", "Multi-tenant, governed", "Row-level tenancy, audit log, prompt evals in CI, Katalon in CI (KRE)"],
+                  ["3 — Enterprise", "Supportable product", "Token budgets, schema-validated outputs, TestOps, API-driven test data"],
               ],
-              [Inches(1.6), Inches(4.2)])
-    add_footer(slide, page := 5)
+              [Inches(1.0), Inches(2.2), Inches(9.1)])
+    add_footer(slide, page := page + 1)
 
-    # 6 Code Review
+    # Katalon companion
     slide = blank_slide(prs)
     add_header_slide(slide,
-        "Code Review Copilot delivers principal-level Guidewire review on every commit — catching defects at desk-check cost",
-        "Build · Code Review Copilot")
-    add_so_what(slide, "Defects caught at review cost 10× less than at UAT — and consume zero reviewer calendar time.")
-    add_bullets(slide, Inches(0.5), Inches(2.35), Inches(6), Inches(3.2), [
-        "Reviews Gosu, PCF, integration, GX, batch and rules code",
-        "Severity-calibrated findings: critical → info, with line-level locations",
-        "Concrete fixes naming the Guidewire construct to use",
-        "Upgrade-safety flags for deprecated APIs and internal.* packages",
-        "Multi-select profiles: Standards · Performance · Upgrade/Cloud · Security",
-        "Overall code-health score plus quick-win recommendations",
-    ], size=10)
-    add_metric_card(slide, Inches(7), Inches(2.35), "30%", "Fewer human review cycles")
-    add_metric_card(slide, Inches(9.55), Inches(2.35), "10×", "Cheaper fix at review vs UAT")
-    add_metric_card(slide, Inches(12.1), Inches(2.35), "0", "Reviewer calendar time", width=Inches(1.2))
-    add_table(slide, Inches(7), Inches(3.7), Inches(5.8),
-              ["Category", "Focus"],
-              [
-                  ["Correctness", "Logic errors, null handling, edge cases"],
-                  ["Performance", "Query patterns, caching, batch efficiency"],
-                  ["Standards", "Naming, structure, Guidewire conventions"],
-                  ["Security", "Injection, auth, data exposure"],
-                  ["Upgrade-safety", "OOTB overrides, deprecated APIs, Cloud readiness"],
-              ],
-              [Inches(1.5), Inches(4.3)])
-    add_footer(slide, page := 6)
-
-    # 7 Section Test
-    slide_section(prs, "02", "Test Accelerators",
-                  "Three complementary tools cover test design, UI automation generation, and legacy manual-to-automation conversion")
-
-    # 8 Test Strategist
-    slide = blank_slide(prs)
-    add_header_slide(slide,
-        "Test Strategist enforces pyramid discipline — assigning the right harness to every test case",
-        "Test · Test Strategist")
-    add_so_what(slide, "Test design keeps pace with development — with harness selection enforced and test data staged upfront.")
-    add_bullets(slide, Inches(0.5), Inches(2.35), Inches(6), Inches(3), [
-        "Derives executable test cases from stories, code, or defect descriptions",
-        "Selects harness per case: GUnit · GT-API · GT-UI · Manual",
-        "Maintains test pyramid health — no GT-UI for logic GUnit should own",
-        "Staged test data list eliminates blocked test execution",
-        "Each case names the acceptance criterion it covers — full traceability",
-    ], size=10)
-    add_table(slide, Inches(7), Inches(2.35), Inches(5.8),
-              ["Harness", "When Used"],
-              [
-                  ["GUnit", "Business logic, rules, calculations, entity operations"],
-                  ["GT-API", "Cloud API contracts, integration gateways"],
-                  ["GT-UI", "End-user journeys requiring screen interaction"],
-                  ["Manual", "Exploratory, visual, or environment-dependent scenarios"],
-              ],
-              [Inches(1.2), Inches(4.6)])
-    add_metric_card(slide, Inches(7), Inches(4.9), "50%", "Faster test-case design")
-    add_metric_card(slide, Inches(9.55), Inches(4.9), "↑", "Higher automation ratio")
-    add_metric_card(slide, Inches(12.1), Inches(4.9), "↓", "Blocked tests from missing data", width=Inches(1.2))
-    add_footer(slide, page := 8)
-
-    # 9 Flow Automator
-    slide = blank_slide(prs)
-    add_header_slide(slide,
-        "Flow Automator scaffolds keyword-driven Katalon UI automation for common Guidewire journeys in minutes, not days",
-        "Test · Flow Automator")
-    add_so_what(slide, "Regression UI packs scaffolded in minutes — with locators centralised in one keyword library per product.")
+        "Katalon Flow Automation ships 12 ready-to-run flows — the execution layer behind Flow Automator",
+        "Companion Asset · /katalon")
+    add_so_what(slide, "AI generates scripts; Katalon runs them. Keyword libraries centralise locators — one fix per customised screen.")
     add_table(slide, Inches(0.5), Inches(2.35), Inches(6.2),
               ["Product", "Flows"],
               [
-                  ["PolicyCenter", "Submission → bind · Mid-term change · Cancellation · Renewal"],
-                  ["ClaimCenter", "FNOL · Reserve + payment · Assign + close"],
-                  ["BillingCenter", "Direct-bill payment · Invoices · Producer + disbursement"],
-                  ["Jutro", "Digital quote-and-buy · Self-service FNOL"],
+                  ["PolicyCenter", "Submission→bind · Change · Cancel · Renewal"],
+                  ["ClaimCenter", "FNOL · Reserve+payment · Close"],
+                  ["BillingCenter", "Payment · Invoices · Disbursement"],
+                  ["Jutro", "Quote-and-buy · Self-service FNOL"],
               ],
               [Inches(1.4), Inches(4.8)])
-    add_metric_card(slide, Inches(7), Inches(2.35), "60%+", "Faster first-draft UI automation")
-    add_metric_card(slide, Inches(9.55), Inches(2.35), "12", "Ready-to-run flows in /katalon")
-    add_metric_card(slide, Inches(12.1), Inches(2.35), "1", "Place to fix a locator", width=Inches(1.2))
-    add_bullets(slide, Inches(7), Inches(3.7), Inches(5.8), Inches(2.5), [
-        "Keyword-driven: business actions in reusable libraries",
-        "Defensive XPath/CSS locators with label fallbacks",
-        "Environment profiles for URL/credential switching",
-        "Output matches bundled Katalon accelerator style",
+    add_bullets(slide, Inches(7), Inches(2.35), Inches(5.8), Inches(2.5), [
+        "Productionalise: katalonc headless in CI",
+        "Secret-injected profiles (default.glbl, qa.glbl)",
+        "Flow Automator injects real Groovy signatures from /katalon",
     ], size=10)
-    add_footer(slide, page := 9)
+    add_footer(slide, page := page + 1)
 
-    # 10 Test Migrator
+    # Architecture
     slide = blank_slide(prs)
     add_header_slide(slide,
-        "Test Migrator converts legacy manual regression packs into runnable automation — with honest gap analysis per case",
-        "Test · Test Migrator")
-    add_so_what(slide, "A legacy manual regression pack becomes automation drafts in minutes — with per-case verdicts on automate, fix-then-automate, or keep manual.")
-    add_bullets(slide, Inches(0.5), Inches(2.35), Inches(6), Inches(3), [
-        "Ingests manual test cases from Excel, ALM, Zephyr, qTest — single or bulk",
-        "Converts each into a runnable automated script in the chosen framework",
-        "Surfaces gaps: missing preconditions, ambiguous steps, no verification point",
-        "Itemises test data per script with generate / stage / existing-record strategy",
-        "Honest automation verdict per case",
-    ], size=10)
-    add_table(slide, Inches(7), Inches(2.35), Inches(5.8),
-              ["Framework", "Output"],
-              [
-                  ["Katalon (Groovy)", "Keyword-driven, matches /katalon style"],
-                  ["Guidewire GT", "GT-UI and GT-API harness scripts"],
-                  ["Playwright", "TypeScript test files"],
-                  ["Selenium + Java", "TestNG test classes"],
-                  ["Cucumber BDD", "Feature files with step definitions"],
-              ],
-              [Inches(1.5), Inches(4.3)])
-    add_metric_card(slide, Inches(7), Inches(5.0), "70%+", "Faster manual-to-automation conversion")
-    add_metric_card(slide, Inches(9.8), Inches(5.0), "Per case", "Gap + test-data analysis")
-    add_footer(slide, page := 10)
-
-    # 11 Section Analysis
-    slide_section(prs, "03", "Analysis Accelerators",
-                  "Evidence-based decision support for release readiness and production defect management")
-
-    # 12 Release Navigator
-    slide = blank_slide(prs)
-    add_header_slide(slide,
-        "Release Navigator reveals what the next ski release does to your customisations — before it lands",
-        "Release · Release Navigator")
-    add_so_what(slide, "Upgrade planning starts from evidence, not guesswork — with effort bands that support AMS commercial conversations weeks earlier.")
-    add_bullets(slide, Inches(0.5), Inches(2.35), Inches(6), Inches(3.2), [
-        "CI/CD Maturity Self-Check — 16 practices across 4 groups with live scoring",
-        "AI Impact Analysis — customisation inventory vs target ski release",
-        "Per-area impact rating, remediation actions, and regression focus",
-        "Effort band (S/M/L/XL) supports commercial scoping",
-        "Pre-upgrade checklist doubles as onboarding assessment for new AMS accounts",
-        "Target releases: Innsbruck · Hakuba · Garmisch · Las Leñas · Palisades · Next",
-    ], size=10)
-    add_table(slide, Inches(7), Inches(2.35), Inches(5.8),
-              ["Group", "Practices"],
-              [
-                  ["Source Control", "Branching, PR reviews, merge policies"],
-                  ["Build & Deploy", "CI pipelines, artefact management, env promotion"],
-                  ["Testing", "Automation coverage, regression gates, data management"],
-                  ["Operations", "Monitoring, rollback, incident response"],
-              ],
-              [Inches(1.5), Inches(4.3)])
-    add_metric_card(slide, Inches(7), Inches(4.9), "20–30%", "Less upgrade regression effort")
-    add_metric_card(slide, Inches(9.55), Inches(4.9), "Weeks", "Earlier remediation visibility")
-    add_metric_card(slide, Inches(12.1), Inches(4.9), "2-in-1", "Maturity + impact", width=Inches(1.2))
-    add_footer(slide, page := 12)
-
-    # 13 Defect Triage
-    slide = blank_slide(prs)
-    add_header_slide(slide,
-        "Defect Triage Agent runs a four-agent pipeline with self-correction — delivering L2/L3 triage in minutes, 24/7",
-        "Operate · Defect Triage Agent (Agentic)")
-    add_so_what(slide, "The only agentic module — a demonstrable multi-agent capability with confidence-gated self-correction for client showcases.")
-    agents = ["Intake Agent", "Investigator", "Router ⟲", "Fix Planner"]
-    ax = Inches(0.5)
-    for agent in agents:
-        fill_rect(slide, ax, Inches(2.35), Inches(2.6), Inches(0.7), NAVY)
-        add_textbox(slide, ax, Inches(2.45), Inches(2.6), Inches(0.5),
-                    agent, size=9, bold=True, color=WHITE, align=PP_ALIGN.CENTER)
-        ax += Inches(2.85)
-    add_bullets(slide, Inches(0.5), Inches(3.3), Inches(6), Inches(2.8), [
-        "Intake — structures raw defect report into structured case file",
-        "Investigator — ranked root-cause hypotheses with confidence scores",
-        "Router — assigns team, priority (P1–P4); loops back if confidence < 65% (max 2 passes)",
-        "Fix Planner — workaround, permanent fix, regression coverage, prevention step",
-        "Every handoff renders on a live timeline with inspectable agent output",
-    ], size=10)
-    add_metric_card(slide, Inches(7), Inches(3.3), "35–50%", "Faster mean-time-to-triage")
-    add_metric_card(slide, Inches(9.55), Inches(3.3), "24/7", "First-pass triage coverage")
-    add_metric_card(slide, Inches(12.1), Inches(3.3), "↓", "Misrouting & ping-pong", width=Inches(1.2))
-    add_table(slide, Inches(7), Inches(4.6), Inches(5.8),
-              ["Parameter", "Value"],
-              [
-                  ["Loop threshold", "Confidence < 65% triggers re-investigation"],
-                  ["Loop budget", "Max 2 extra passes"],
-                  ["Evidence", "Optional logs / stack trace / code raises confidence"],
-              ],
-              [Inches(1.6), Inches(4.2)])
-    add_footer(slide, page := 13)
-
-    # 14 Katalon
-    slide = blank_slide(prs)
-    add_header_slide(slide,
-        "The Katalon Flow Automation accelerator ships 12 ready-to-run flows — the physical execution layer behind Flow Automator",
-        "Companion Asset · Guidewire Flow Automation (Katalon)")
-    add_so_what(slide, "UI test packs rot fast — this accelerator front-loads locators and boilerplate so teams focus on flows, not maintenance.")
-    add_table(slide, Inches(0.5), Inches(2.35), Inches(12.3),
-              ["App", "Test Case", "Flow"],
-              [
-                  ["PolicyCenter", "PC01–PC04", "PA submission → bind · Mid-term change · Cancellation · Renewal"],
-                  ["ClaimCenter", "CC01–CC03", "FNOL · Reserve + payment · Assign + close"],
-                  ["BillingCenter", "BC01–BC03", "Direct-bill payment · Invoices · Producer + disbursement"],
-                  ["Jutro", "JU01–JU02", "Digital quote-and-buy · Self-service FNOL"],
-              ],
-              [Inches(1.5), Inches(1.2), Inches(9.6)])
-    add_textbox(slide, Inches(0.5), Inches(4.5), Inches(3.8), Inches(0.25),
-                "KEYWORD LIBRARIES", size=9, bold=True, color=TEAL)
-    add_bullets(slide, Inches(0.5), Inches(4.75), Inches(3.8), Inches(1.8), [
-        "GuidewireUI · LoginActions",
-        "PolicyCenterActions · ClaimCenterActions",
-        "BillingCenterActions · JutroActions · TestData",
-    ], size=9)
-    add_textbox(slide, Inches(4.6), Inches(4.5), Inches(3.8), Inches(0.25),
-                "TEST SUITES", size=9, bold=True, color=TEAL)
-    add_bullets(slide, Inches(4.6), Inches(4.75), Inches(3.8), Inches(1.8), [
-        "PC · CC · BC · Jutro Regression",
-        "Smoke — All Products",
-        "Profiles: default.glbl · qa.glbl",
-    ], size=9)
-    add_textbox(slide, Inches(8.7), Inches(4.5), Inches(3.8), Inches(0.25),
-                "CI INTEGRATION", size=9, bold=True, color=TEAL)
-    add_bullets(slide, Inches(8.7), Inches(4.75), Inches(3.8), Inches(1.8), [
-        "Headless via katalonc (Runtime Engine)",
-        "Katalon Studio 8.x+ — open /katalon directly",
-        "Defensive XPath: one-line fix per customisation",
-    ], size=9)
-    add_footer(slide, page := 14)
-
-    # 15 Architecture
-    slide = blank_slide(prs)
-    add_header_slide(slide,
-        "A secure, serverless architecture keeps API keys server-side while persisting all outputs to project storage",
+        "Serverless architecture keeps secrets server-side; bundled corpora and RAG enrich every accelerator run",
         "Technical Architecture")
-    fill_rect(slide, Inches(0.5), Inches(1.65), Inches(5.8), Inches(0.7), NAVY)
-    add_textbox(slide, Inches(0.6), Inches(1.75), Inches(5.6), Inches(0.5),
-                "React 18 + Vite Frontend\n7 module pages · NTT DATA brand", size=10, bold=True, color=WHITE, align=PP_ALIGN.CENTER)
-    add_textbox(slide, Inches(2.8), Inches(2.45), Inches(1.2), Inches(0.3), "↓", size=16, color=TEAL, align=PP_ALIGN.CENTER)
-    fill_rect(slide, Inches(0.5), Inches(2.8), Inches(5.8), Inches(0.55), GRAY_100)
-    add_textbox(slide, Inches(0.6), Inches(2.9), Inches(5.6), Inches(0.4),
-                "Vercel Serverless API\n/api/chat.js · /api/projects.js", size=9, color=TEXT, align=PP_ALIGN.CENTER)
-    add_textbox(slide, Inches(2.8), Inches(3.45), Inches(1.2), Inches(0.3), "↓", size=16, color=TEAL, align=PP_ALIGN.CENTER)
-    fill_rect(slide, Inches(0.5), Inches(3.8), Inches(2.7), Inches(0.55), GRAY_100)
-    add_textbox(slide, Inches(0.55), Inches(3.9), Inches(2.6), Inches(0.4),
-                "Anthropic API\nClaude Sonnet 4.6", size=9, color=TEXT, align=PP_ALIGN.CENTER)
-    fill_rect(slide, Inches(3.6), Inches(3.8), Inches(2.7), Inches(0.55), GRAY_100)
-    add_textbox(slide, Inches(3.65), Inches(3.9), Inches(2.6), Inches(0.4),
-                "Neon Postgres\nProjects + artifacts", size=9, color=TEXT, align=PP_ALIGN.CENTER)
-    fill_rect(slide, Inches(7), Inches(1.65), Inches(5.8), Inches(0.7), NAVY)
-    add_textbox(slide, Inches(7.1), Inches(1.75), Inches(5.6), Inches(0.5),
-                "Katalon Studio Project (/katalon)\nKeyword libs → Test cases → Suites", size=10, bold=True, color=WHITE, align=PP_ALIGN.CENTER)
-    add_textbox(slide, Inches(9.3), Inches(2.45), Inches(1.2), Inches(0.3), "↓", size=16, color=TEAL, align=PP_ALIGN.CENTER)
-    fill_rect(slide, Inches(7), Inches(2.8), Inches(5.8), Inches(0.55), GRAY_100)
-    add_textbox(slide, Inches(7.1), Inches(2.9), Inches(5.6), Inches(0.4),
-                "katalonc (Runtime Engine)\nHeadless CI execution", size=9, color=TEXT, align=PP_ALIGN.CENTER)
-    add_textbox(slide, Inches(7), Inches(3.7), Inches(2), Inches(0.25),
-                "SECURITY POSTURE", size=9, bold=True, color=TEAL)
-    add_bullets(slide, Inches(7), Inches(4.0), Inches(5.8), Inches(2.2), [
-        "ANTHROPIC_API_KEY — server-side only, never reaches browser",
-        "DATABASE_URL — Neon pooled connection on Vercel",
-        "All module outputs saved to project with JSON export",
-        "SPA routing via vercel.json rewrites",
+    add_bullets(slide, Inches(0.5), Inches(2.35), Inches(6), Inches(3.5), [
+        "React SPA → Vercel /api/chat (Edge) + /api/knowledge + /api/projects",
+        "Claude Sonnet 4.6 — prompt caching on reference material",
+        "Global corpora: /katalon, /reference (GW standards, ski releases)",
+        "Per-project RAG: chunk → embed → retrieve top-8 chunks",
+        "Neon Postgres: projects, artifacts, knowledge_docs/chunks",
+        "Optional pgvector + Voyage/OpenAI embeddings at scale",
     ], size=10)
-    add_footer(slide, page := 15)
+    add_bullets(slide, Inches(7), Inches(2.35), Inches(5.8), Inches(3), [
+        "ANTHROPIC_API_KEY — server-side only",
+        "DATABASE_URL — Neon pooled connection",
+        "VOYAGE_API_KEY — production RAG embeddings (optional)",
+        "DD_API_KEY — Defect Triage Datadog integration",
+    ], size=10)
+    add_footer(slide, page := page + 1)
 
-    # 16 ROI
+    # ROI
     slide = blank_slide(prs)
     add_header_slide(slide,
-        "Indicative ROI ranges from 30% to 70% effort reduction — concentrated at the highest-volume manual activities",
+        "Indicative ROI: 30–70% effort reduction concentrated at highest-volume manual activities",
         "Value at a Glance")
     add_table(slide, Inches(0.4), Inches(1.55), Inches(12.5),
-              ["Accelerator", "Phase", "Primary Metric", "Secondary Metric", "Key Benefit"],
-              [
-                  ["Story Forge", "Plan", "40–60% less effort per story", "~2 days saved per grooming sprint", "Fewer AC gaps reaching SIT/UAT"],
-                  ["Code Review Copilot", "Build", "30% fewer review cycles", "10× cheaper fix at review vs UAT", "Zero reviewer calendar time"],
-                  ["Test Strategist", "Test", "50% faster test-case design", "Higher automation ratio", "Fewer blocked tests from missing data"],
-                  ["Flow Automator", "Test", "60%+ faster UI automation", "12 ready-to-run Katalon flows", "One place to fix customised locators"],
-                  ["Test Migrator", "Test", "70%+ faster manual conversion", "5 frameworks supported", "Per-case gap + test-data analysis"],
-                  ["Release Navigator", "Release", "20–30% less regression effort", "Weeks earlier remediation visibility", "2-in-1 maturity + impact analysis"],
-                  ["Defect Triage Agent", "Operate", "35–50% faster MTTT", "24/7 first-pass coverage", "Lower misrouting and ping-pong"],
-              ],
-              [Inches(1.8), Inches(0.8), Inches(2.5), Inches(2.5), Inches(2.4)])
-    add_textbox(slide, Inches(0.5), Inches(6.5), Inches(12), Inches(0.3),
-                "All ROI figures are indicative benchmarks from the NTT DATA Guidewire Practice — update in src/lib/catalog.js as firm evidence accumulates.",
-                size=8, color=GRAY_400)
-    add_footer(slide, page := 16)
+              ["Accelerator", "Phase", "ROI", "Productionalise first step"],
+              [[a["name"], a["phase"], f"{a['roi']} {a['roi_label']}", a["prod"][0]] for a in ACCELERATORS],
+              [Inches(2.0), Inches(0.8), Inches(2.5), Inches(7.2)])
+    add_footer(slide, page := page + 1)
 
-    # 17 Adoption
+    # Adoption
     slide = blank_slide(prs)
     add_header_slide(slide,
-        "A phased adoption path moves teams from showcase demos to embedded workflow integration",
+        "Phased adoption moves teams from showcase to embedded workflow in four steps",
         "Recommended Adoption Path")
     steps = [
-        ("Discover & Demo (Week 1)",
-         "Walk client stakeholders through the showcase. Lead with Defect Triage Agent and Flow Automator + Katalon live demo."),
-        ("Pilot on Live Data (Weeks 2–4)",
-         "Run Story Forge on real backlog grooming. Feed actual Gosu into Code Review. Convert 10–20 manual cases via Test Migrator."),
-        ("Embed in Delivery (Month 2+)",
-         "Integrate outputs into Jira/Azure DevOps. Wire Katalon suites into CI. Establish Code Review as a pre-PR gate."),
-        ("Measure & Scale (Ongoing)",
-         "Track ROI metrics per module. Extend Katalon keyword libraries for client customisations."),
+        ("Week 1 — Discover & demo", "Lead with Defect Triage + Flow Automator + Katalon hands-on."),
+        ("Weeks 2–4 — Pilot on live data", "Story Forge grooming, Code Review on real Gosu, Test Migrator on 10–20 cases."),
+        ("Month 2+ — Embed", "Jira/ADO export, Katalon in CI, Code Review as pre-PR gate, Project knowledge populated."),
+        ("Ongoing — Measure", "Track ROI per module; extend /katalon libraries and RAG corpus per client."),
     ]
     y = Inches(1.7)
     for i, (title, desc) in enumerate(steps, 1):
@@ -593,9 +527,8 @@ def build():
         add_textbox(slide, Inches(1.0), y, Inches(11.5), Inches(0.3), title, size=12, bold=True, color=NAVY)
         add_textbox(slide, Inches(1.0), y + Inches(0.32), Inches(11.5), Inches(0.55), desc, size=10, color=GRAY_600)
         y += Inches(1.15)
-    add_footer(slide, page := 17)
+    add_footer(slide, page := page + 1)
 
-    # 18 Next Steps
     slide_next_steps(prs)
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
