@@ -22,12 +22,13 @@ function emitUsage(record) {
   }
 }
 
-export async function callClaude({ system, prompt, maxTokens = 6000, onUsage }) {
+export async function callClaude({ system, prompt, maxTokens = 6000, onUsage, cacheSystem = false }) {
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       system,
+      cache_system: cacheSystem,
       max_tokens: maxTokens,
       messages: [{ role: 'user', content: prompt }]
     })

@@ -128,6 +128,7 @@ export const CATALOG = [
       Products: 'PC · CC · BC · Jutro',
       Tooling: 'Katalon Studio (WebUI)',
       Input: 'Product + flow + optional screen notes',
+      'Reference material': 'Bundled /katalon keyword libraries (prompt-cached)',
       Output: 'Katalon Groovy test case + keyword additions JSON'
     },
     config: [
@@ -161,6 +162,7 @@ export const CATALOG = [
       'AI pattern': 'Structured transformation + gap analysis',
       Products: 'PC · CC · BC · Jutro · Cross-suite',
       Input: 'Raw manual test cases (one or many)',
+      'Reference material': 'Bundled /katalon libraries when Katalon framework selected',
       Output: 'Automated scripts + gaps + test-data manifest JSON',
       Persistence: 'Neon Postgres artifact'
     },

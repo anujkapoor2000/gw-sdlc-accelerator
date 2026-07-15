@@ -5,6 +5,7 @@ import {
   TEST_MIGRATOR_CASE_SYSTEM,
   TEST_MIGRATOR_SYNTH_SYSTEM
 } from '../lib/prompts.js'
+import { isKatalonFramework, withKatalonReference } from '../lib/referenceMaterial.js'
 import SaveToProject from '../components/SaveToProject.jsx'
 import { useRequestCost, RequestCost } from '../components/RequestCost.jsx'
 
@@ -95,8 +96,11 @@ export default function TestMigrator({ project }) {
       for (let i = 0; i < list.length; i++) {
         const c = list[i]
         setProgress(`Converting case ${i + 1} of ${list.length}${c.title ? ` — ${c.title}` : ''}…`)
+        const caseSystem = isKatalonFramework(framework)
+          ? withKatalonReference(TEST_MIGRATOR_CASE_SYSTEM, product)
+          : TEST_MIGRATOR_CASE_SYSTEM
         const caseText = await callClaude({
-          system: TEST_MIGRATOR_CASE_SYSTEM,
+          system: caseSystem,
           prompt: `Target automation framework: ${framework}
 Primary product: ${product}
 Case id to use: ${c.id || `MTC-${i + 1}`}
@@ -104,6 +108,7 @@ Case id to use: ${c.id || `MTC-${i + 1}`}
 Manual test case:
 ${c.raw || c.title}`,
           maxTokens: 16000,
+          cacheSystem: isKatalonFramework(framework),
           onUsage: reqCost.onUsage
         })
         const parsed = parseModelJson(caseText)

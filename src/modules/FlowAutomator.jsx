@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { callClaude, parseModelJson } from '../lib/api.js'
 import { FLOW_AUTOMATOR_SYSTEM } from '../lib/prompts.js'
+import { withKatalonReference } from '../lib/referenceMaterial.js'
 import SaveToProject from '../components/SaveToProject.jsx'
 import { useRequestCost, RequestCost } from '../components/RequestCost.jsx'
 
@@ -72,7 +73,13 @@ Flow to automate: ${flow}
 
 Flow notes (optional — screen names, fields, seed data):
 ${notes || '(none provided — use sensible OOTB defaults for this flow)'}`
-      const text = await callClaude({ system: FLOW_AUTOMATOR_SYSTEM, prompt, maxTokens: 16000, onUsage: reqCost.onUsage })
+      const text = await callClaude({
+        system: withKatalonReference(FLOW_AUTOMATOR_SYSTEM, product),
+        prompt,
+        maxTokens: 16000,
+        cacheSystem: true,
+        onUsage: reqCost.onUsage
+      })
       setResult(parseModelJson(text))
     } catch (e) {
       setError(e.message)

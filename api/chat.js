@@ -59,6 +59,19 @@ function jsonRes(body, status = 200) {
   })
 }
 
+/** Wrap a long system prompt in an ephemeral cache block when requested. */
+function buildSystemPayload(system, cacheSystem) {
+  if (!system) return undefined
+  if (!cacheSystem) return system
+  return [
+    {
+      type: 'text',
+      text: system,
+      cache_control: { type: 'ephemeral' }
+    }
+  ]
+}
+
 export default async function handler(req) {
   if (req.method !== 'POST') return jsonRes({ error: 'Method not allowed' }, 405)
 
@@ -74,10 +87,12 @@ export default async function handler(req) {
     return jsonRes({ error: 'Invalid JSON body' }, 400)
   }
 
-  const { system, messages, max_tokens } = body || {}
+  const { system, messages, max_tokens, cache_system: cacheSystem } = body || {}
   if (!Array.isArray(messages) || messages.length === 0) {
     return jsonRes({ error: 'messages array is required' }, 400)
   }
+
+  const systemPayload = buildSystemPayload(system, cacheSystem)
 
   let upstream
   try {
@@ -86,12 +101,13 @@ export default async function handler(req) {
       headers: {
         'content-type': 'application/json',
         'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
+        'anthropic-version': '2023-06-01',
+        ...(cacheSystem && system ? { 'anthropic-beta': 'prompt-caching-2024-07-31' } : {})
       },
       body: JSON.stringify({
         model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6',
         max_tokens: Math.min(max_tokens || 4096, 16000),
-        system: system || undefined,
+        system: systemPayload,
         messages,
         stream: true
       })
