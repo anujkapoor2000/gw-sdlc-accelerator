@@ -10,6 +10,7 @@ import TestMigrator from './modules/TestMigrator.jsx'
 import ReleaseNavigator from './modules/ReleaseNavigator.jsx'
 import DefectTriage from './modules/DefectTriage.jsx'
 import ProjectBar from './components/ProjectBar.jsx'
+import ProjectKnowledge from './components/ProjectKnowledge.jsx'
 import UsageMeter from './components/UsageMeter.jsx'
 
 const PHASES = [
@@ -155,6 +156,7 @@ export default function App() {
               refreshProjects={refreshProjects}
               dbError={dbError}
             />
+            <ProjectKnowledge project={project} dbError={dbError} />
             {view === 'dashboard' && <Dashboard {...moduleProps} go={setView} projects={projects} />}
             {view === 'story-forge' && <StoryForge {...moduleProps} />}
             {view === 'code-review' && <CodeReview {...moduleProps} />}

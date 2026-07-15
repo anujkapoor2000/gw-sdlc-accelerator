@@ -59,17 +59,55 @@ function jsonRes(body, status = 200) {
   })
 }
 
-/** Wrap a long system prompt in an ephemeral cache block when requested. */
-function buildSystemPayload(system, cacheSystem) {
-  if (!system) return undefined
-  if (!cacheSystem) return system
-  return [
-    {
-      type: 'text',
-      text: system,
-      cache_control: { type: 'ephemeral' }
+/** Build system payload; static base can be cached, RAG context stays uncached. */
+function buildSystemPayload(baseSystem, cacheSystem, ragContext) {
+  const blocks = []
+  if (baseSystem) {
+    blocks.push(
+      cacheSystem
+        ? { type: 'text', text: baseSystem, cache_control: { type: 'ephemeral' } }
+        : { type: 'text', text: baseSystem }
+    )
+  }
+  if (ragContext) {
+    blocks.push({ type: 'text', text: ragContext })
+  }
+  if (!blocks.length) return undefined
+  if (blocks.length === 1 && !cacheSystem) return blocks[0].text
+  return blocks
+}
+
+async function attachProjectKnowledge(body) {
+  const {
+    system,
+    project_id: projectId,
+    rag_query: ragQuery,
+    rag_module: ragModule,
+    use_project_knowledge: useProjectKnowledge
+  } = body || {}
+
+  if (!useProjectKnowledge || !projectId || !ragQuery?.trim()) {
+    return { baseSystem: system, ragContext: '' }
+  }
+
+  try {
+    const { getSql, ensureSchema } = await import('./_lib/schema.js')
+    const { retrieveKnowledge, formatRetrievedContext } = await import('./_lib/rag.js')
+    const sql = getSql()
+    await ensureSchema(sql)
+    const { chunks } = await retrieveKnowledge(sql, {
+      projectId,
+      query: ragQuery,
+      module: ragModule,
+      limit: 8
+    })
+    return {
+      baseSystem: system,
+      ragContext: formatRetrievedContext(chunks)
     }
-  ]
+  } catch {
+    return { baseSystem: system, ragContext: '' }
+  }
 }
 
 export default async function handler(req) {
@@ -92,7 +130,8 @@ export default async function handler(req) {
     return jsonRes({ error: 'messages array is required' }, 400)
   }
 
-  const systemPayload = buildSystemPayload(system, cacheSystem)
+  const { baseSystem, ragContext } = await attachProjectKnowledge(body)
+  const systemPayload = buildSystemPayload(baseSystem, cacheSystem, ragContext)
 
   let upstream
   try {

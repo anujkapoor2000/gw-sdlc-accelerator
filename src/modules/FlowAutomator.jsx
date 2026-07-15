@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { callClaude, parseModelJson } from '../lib/api.js'
 import { FLOW_AUTOMATOR_SYSTEM } from '../lib/prompts.js'
 import { withKatalonReference } from '../lib/referenceMaterial.js'
+import { ragCallOptions } from '../lib/rag.js'
 import SaveToProject from '../components/SaveToProject.jsx'
 import { useRequestCost, RequestCost } from '../components/RequestCost.jsx'
 
@@ -78,7 +79,8 @@ ${notes || '(none provided — use sensible OOTB defaults for this flow)'}`
         prompt,
         maxTokens: 16000,
         cacheSystem: true,
-        onUsage: reqCost.onUsage
+        onUsage: reqCost.onUsage,
+        ...ragCallOptions(project, 'flow-automator', `${product}\n${flow}\n${notes}`)
       })
       setResult(parseModelJson(text))
     } catch (e) {

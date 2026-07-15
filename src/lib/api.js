@@ -22,7 +22,17 @@ function emitUsage(record) {
   }
 }
 
-export async function callClaude({ system, prompt, maxTokens = 6000, onUsage, cacheSystem = false }) {
+export async function callClaude({
+  system,
+  prompt,
+  maxTokens = 6000,
+  onUsage,
+  cacheSystem = false,
+  projectId,
+  ragModule,
+  ragQuery,
+  useProjectKnowledge = false
+}) {
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -30,6 +40,10 @@ export async function callClaude({ system, prompt, maxTokens = 6000, onUsage, ca
       system,
       cache_system: cacheSystem,
       max_tokens: maxTokens,
+      project_id: projectId,
+      rag_module: ragModule,
+      rag_query: ragQuery,
+      use_project_knowledge: useProjectKnowledge,
       messages: [{ role: 'user', content: prompt }]
     })
   })
@@ -127,5 +141,23 @@ export const db = {
     }).then(handle),
 
   deleteArtifact: (artifactId) =>
-    fetch(`/api/projects?artifactId=${artifactId}`, { method: 'DELETE' }).then(handle)
+    fetch(`/api/projects?artifactId=${artifactId}`, { method: 'DELETE' }).then(handle),
+
+  listKnowledge: (projectId) =>
+    fetch(`/api/knowledge?projectId=${projectId}`).then(handle),
+
+  addKnowledge: (payload) =>
+    fetch('/api/knowledge', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(handle),
+
+  deleteKnowledge: (id) =>
+    fetch(`/api/knowledge?id=${id}`, { method: 'DELETE' }).then(handle),
+
+  syncArtifactKnowledge: (projectId) =>
+    fetch(`/api/knowledge?action=sync-artifacts&projectId=${projectId}`, {
+      method: 'POST'
+    }).then(handle)
 }

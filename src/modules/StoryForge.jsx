@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { callClaude, parseModelJson } from '../lib/api.js'
 import { STORY_FORGE_SYSTEM } from '../lib/prompts.js'
+import { ragCallOptions } from '../lib/rag.js'
 import SaveToProject from '../components/SaveToProject.jsx'
 import { useRequestCost, RequestCost } from '../components/RequestCost.jsx'
 
@@ -21,7 +22,13 @@ export default function StoryForge({ project }) {
 
 Raw requirements from the business:
 ${requirements}`
-      const text = await callClaude({ system: STORY_FORGE_SYSTEM, prompt, maxTokens: 16000, onUsage: reqCost.onUsage })
+      const text = await callClaude({
+        system: STORY_FORGE_SYSTEM,
+        prompt,
+        maxTokens: 16000,
+        onUsage: reqCost.onUsage,
+        ...ragCallOptions(project, 'story-forge', `${product}\n${requirements}`)
+      })
       setResult(parseModelJson(text))
     } catch (e) {
       setError(e.message)

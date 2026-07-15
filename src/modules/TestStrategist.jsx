@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { callClaude, parseModelJson } from '../lib/api.js'
 import { TEST_STRATEGIST_SYSTEM } from '../lib/prompts.js'
+import { ragCallOptions } from '../lib/rag.js'
 import SaveToProject from '../components/SaveToProject.jsx'
 import { useRequestCost, RequestCost } from '../components/RequestCost.jsx'
 
@@ -23,7 +24,13 @@ export default function TestStrategist({ project }) {
 
 Material to derive tests from:
 ${input}`
-      const text = await callClaude({ system: TEST_STRATEGIST_SYSTEM, prompt, maxTokens: 16000, onUsage: reqCost.onUsage })
+      const text = await callClaude({
+        system: TEST_STRATEGIST_SYSTEM,
+        prompt,
+        maxTokens: 16000,
+        onUsage: reqCost.onUsage,
+        ...ragCallOptions(project, 'test-strategist', `${kind}\n${input}`)
+      })
       setResult(parseModelJson(text))
       setTypeFilter('all')
     } catch (e) {

@@ -15,6 +15,7 @@ import {
   TRIAGE_ROUTER_SYSTEM,
   TRIAGE_PLANNER_SYSTEM
 } from '../lib/prompts.js'
+import { ragCallOptions } from '../lib/rag.js'
 import SaveToProject from '../components/SaveToProject.jsx'
 import { useRequestCost, RequestCost } from '../components/RequestCost.jsx'
 
@@ -77,7 +78,13 @@ export default function DefectTriage({ project }) {
     const idx = stepsCountRef.current++
     pushStep({ agent: agentKey, status: 'running', note, startedAt })
     try {
-      const text = await callClaude({ system, prompt, maxTokens: 12000, onUsage: reqCost.onUsage })
+      const text = await callClaude({
+        system,
+        prompt,
+        maxTokens: 12000,
+        onUsage: reqCost.onUsage,
+        ...ragCallOptions(project, 'defect-triage', prompt)
+      })
       const output = parseModelJson(text)
       completeStep(idx, { status: 'done', output, elapsed: ((Date.now() - startedAt) / 1000).toFixed(1) })
       return output

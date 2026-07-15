@@ -1,11 +1,19 @@
 import React, { useState } from 'react'
 import { db } from '../lib/api.js'
+import { isProjectRagEnabled, setProjectRagEnabled } from '../lib/rag.js'
 
 export default function ProjectBar({ projects, projectId, setProjectId, refreshProjects, dbError }) {
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
   const [client, setClient] = useState('')
   const [busy, setBusy] = useState(false)
+  const [ragOn, setRagOn] = useState(isProjectRagEnabled)
+
+  function toggleRag() {
+    const next = !ragOn
+    setRagOn(next)
+    setProjectRagEnabled(next)
+  }
 
   async function create() {
     if (!name.trim()) return
@@ -51,6 +59,12 @@ export default function ProjectBar({ projects, projectId, setProjectId, refreshP
             </button>
             <button className="btn btn-ghost btn-sm" onClick={() => setCreating(false)}>Cancel</button>
           </>
+        )}
+        {projectId && !dbError && (
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13.5, cursor: 'pointer', marginLeft: 8 }}>
+            <input type="checkbox" checked={ragOn} onChange={toggleRag} />
+            Use project knowledge (RAG)
+          </label>
         )}
       </div>
     </>

@@ -6,6 +6,7 @@ import {
   TEST_MIGRATOR_SYNTH_SYSTEM
 } from '../lib/prompts.js'
 import { isKatalonFramework, withKatalonReference } from '../lib/referenceMaterial.js'
+import { ragCallOptions } from '../lib/rag.js'
 import SaveToProject from '../components/SaveToProject.jsx'
 import { useRequestCost, RequestCost } from '../components/RequestCost.jsx'
 
@@ -81,7 +82,8 @@ export default function TestMigrator({ project }) {
           system: TEST_MIGRATOR_SPLIT_SYSTEM,
           prompt: `Raw manual test case(s) pasted by the client:\n${input}`,
           maxTokens: 3000,
-          onUsage: reqCost.onUsage
+          onUsage: reqCost.onUsage,
+          ...ragCallOptions(project, 'test-migrator', input)
         })
         split = parseModelJson(splitText)
       } catch {
@@ -99,17 +101,19 @@ export default function TestMigrator({ project }) {
         const caseSystem = isKatalonFramework(framework)
           ? withKatalonReference(TEST_MIGRATOR_CASE_SYSTEM, product)
           : TEST_MIGRATOR_CASE_SYSTEM
-        const caseText = await callClaude({
-          system: caseSystem,
-          prompt: `Target automation framework: ${framework}
+        const casePrompt = `Target automation framework: ${framework}
 Primary product: ${product}
 Case id to use: ${c.id || `MTC-${i + 1}`}
 
 Manual test case:
-${c.raw || c.title}`,
+${c.raw || c.title}`
+        const caseText = await callClaude({
+          system: caseSystem,
+          prompt: casePrompt,
           maxTokens: 16000,
           cacheSystem: isKatalonFramework(framework),
-          onUsage: reqCost.onUsage
+          onUsage: reqCost.onUsage,
+          ...ragCallOptions(project, 'test-migrator', casePrompt)
         })
         const parsed = parseModelJson(caseText)
         collected.push(parsed)

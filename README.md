@@ -60,6 +60,8 @@ npx vercel dev              # runs the serverless functions + Vite together
    | `ANTHROPIC_API_KEY` | `sk-ant-...` | server-side only |
    | `DATABASE_URL` | Neon pooled connection string | **add as a plain Environment Variable, not a Secret** — Secret references cause `DATABASE_URL` resolution errors at build time |
    | `ANTHROPIC_MODEL` | `claude-sonnet-4-6` | optional override |
+   | `VOYAGE_API_KEY` | Voyage API key | optional — better RAG embeddings (falls back to sparse/local if unset) |
+   | `OPENAI_API_KEY` | OpenAI API key | optional — alternative embedding provider for RAG |
 
    - Deploy. Subsequent pushes to `main` auto-deploy
 
@@ -100,6 +102,7 @@ for setup, running headless in CI, and adapting locators to a customised environ
 ## Extending
 
 - **Reference material**: Bundled corpora under `/reference` are injected into accelerator prompts (Katalon libs, GW Cloud standards, ski-release themes). Re-run `npm run bundle:reference` after edits; `prebuild` does this on deploy.
+- **Per-project knowledge (RAG)**: Add client standards and inventories via **Project knowledge** in the UI, or index saved outputs. Enable **Use project knowledge (RAG)** in the project bar; chunks are embedded (Voyage/OpenAI if configured, else sparse fallback) and retrieved per accelerator run. Optional `pgvector` in Neon speeds retrieval at scale.
 - **New module**: add a system prompt in `src/lib/prompts.js` (demand strict JSON), a module component in `src/modules/`, and a rail entry in `src/App.jsx`
 - **New review profile**: extend `PROFILES` in `CodeReview.jsx` — the prompt picks up the selected labels automatically
 - **New external static-analysis tool** (beyond SonarQube/ESLint/Checkstyle): add a parser to `src/lib/externalFindings.js` that normalizes the tool's report into `{ source, severity, category, location, issue, recommendation, standardRef }`, and register it in `EXTERNAL_TOOLS` — a live SonarQube/SonarCloud Web API proxy (`api/sonarqube.js`, same pattern as `api/datadog.js`) is a natural follow-up to the current paste/upload flow

@@ -1,39 +1,6 @@
 // /api/projects.js — Neon Postgres persistence for projects and saved outputs.
-// One function handles both resources to keep the serverless footprint small:
-//   GET    /api/projects                       → list projects (with artifact counts)
-//   POST   /api/projects                       → create project { name, client, product }
-//   DELETE /api/projects?id=<uuid>             → delete project (cascades artifacts)
-//   GET    /api/projects?id=<uuid>&artifacts=1 → list artifacts for a project
-//   POST   /api/projects?id=<uuid>&artifacts=1 → save artifact { module, title, content }
-//   DELETE /api/projects?artifactId=<uuid>     → delete a single artifact
 
-import { neon } from '@neondatabase/serverless'
-
-let schemaReady = false
-
-async function ensureSchema(sql) {
-  if (schemaReady) return
-  await sql`
-    CREATE TABLE IF NOT EXISTS sdlc_projects (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      name TEXT NOT NULL,
-      client TEXT DEFAULT '',
-      product TEXT DEFAULT 'InsuranceSuite',
-      created_at TIMESTAMPTZ DEFAULT now()
-    )
-  `
-  await sql`
-    CREATE TABLE IF NOT EXISTS sdlc_artifacts (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      project_id UUID NOT NULL REFERENCES sdlc_projects(id) ON DELETE CASCADE,
-      module TEXT NOT NULL,
-      title TEXT NOT NULL,
-      content JSONB NOT NULL,
-      created_at TIMESTAMPTZ DEFAULT now()
-    )
-  `
-  schemaReady = true
-}
+import { ensureSchema, getSql } from './_lib/schema.js'
 
 export default async function handler(req, res) {
   if (!process.env.DATABASE_URL) {
@@ -42,7 +9,7 @@ export default async function handler(req, res) {
     })
   }
 
-  const sql = neon(process.env.DATABASE_URL)
+  const sql = getSql()
   const { id, artifacts, artifactId } = req.query
 
   try {

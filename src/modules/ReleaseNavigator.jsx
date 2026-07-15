@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { callClaude, parseModelJson } from '../lib/api.js'
 import { RELEASE_NAVIGATOR_SYSTEM } from '../lib/prompts.js'
 import { withReleaseNavigatorReference } from '../lib/referenceMaterial.js'
+import { ragCallOptions } from '../lib/rag.js'
 import SaveToProject from '../components/SaveToProject.jsx'
 import { useRequestCost, RequestCost } from '../components/RequestCost.jsx'
 
@@ -47,7 +48,8 @@ ${inventory}`
         prompt,
         maxTokens: 16000,
         cacheSystem: true,
-        onUsage: reqCost.onUsage
+        onUsage: reqCost.onUsage,
+        ...ragCallOptions(project, 'release-navigator', `${release}\n${inventory}`)
       })
       setResult(parseModelJson(text))
     } catch (e) {
