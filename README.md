@@ -99,7 +99,7 @@ for setup, running headless in CI, and adapting locators to a customised environ
 
 ## Extending
 
-- **Katalon reference material**: Flow Automator and Test Migrator (Katalon framework) inject the bundled `/katalon` keyword libraries into each Claude request. Re-run `npm run bundle:katalon` after editing Groovy sources; `prebuild` does this automatically on deploy.
+- **Reference material**: Bundled corpora under `/reference` are injected into accelerator prompts (Katalon libs, GW Cloud standards, ski-release themes). Re-run `npm run bundle:reference` after edits; `prebuild` does this on deploy.
 - **New module**: add a system prompt in `src/lib/prompts.js` (demand strict JSON), a module component in `src/modules/`, and a rail entry in `src/App.jsx`
 - **New review profile**: extend `PROFILES` in `CodeReview.jsx` — the prompt picks up the selected labels automatically
 - **New external static-analysis tool** (beyond SonarQube/ESLint/Checkstyle): add a parser to `src/lib/externalFindings.js` that normalizes the tool's report into `{ source, severity, category, location, issue, recommendation, standardRef }`, and register it in `EXTERNAL_TOOLS` — a live SonarQube/SonarCloud Web API proxy (`api/sonarqube.js`, same pattern as `api/datadog.js`) is a natural follow-up to the current paste/upload flow

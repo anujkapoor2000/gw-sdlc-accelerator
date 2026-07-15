@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { callClaude, parseModelJson } from '../lib/api.js'
 import { RELEASE_NAVIGATOR_SYSTEM } from '../lib/prompts.js'
+import { withReleaseNavigatorReference } from '../lib/referenceMaterial.js'
 import SaveToProject from '../components/SaveToProject.jsx'
 import { useRequestCost, RequestCost } from '../components/RequestCost.jsx'
 
@@ -41,7 +42,13 @@ CI/CD readiness self-assessment: ${pct}% (${done}/${total} practices in place)
 
 Customisation inventory:
 ${inventory}`
-      const text = await callClaude({ system: RELEASE_NAVIGATOR_SYSTEM, prompt, maxTokens: 16000, onUsage: reqCost.onUsage })
+      const text = await callClaude({
+        system: withReleaseNavigatorReference(RELEASE_NAVIGATOR_SYSTEM, { release, products }),
+        prompt,
+        maxTokens: 16000,
+        cacheSystem: true,
+        onUsage: reqCost.onUsage
+      })
       setResult(parseModelJson(text))
     } catch (e) {
       setError(e.message)

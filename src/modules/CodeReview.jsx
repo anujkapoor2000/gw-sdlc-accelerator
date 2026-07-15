@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { callClaude, parseModelJson } from '../lib/api.js'
 import { CODE_REVIEW_SYSTEM } from '../lib/prompts.js'
+import { withCodeReviewReference } from '../lib/referenceMaterial.js'
 import { EXTERNAL_TOOLS, parseExternalReport } from '../lib/externalFindings.js'
 import SaveToProject from '../components/SaveToProject.jsx'
 import { useRequestCost, RequestCost } from '../components/RequestCost.jsx'
@@ -51,7 +52,13 @@ Review profiles selected: ${profiles.map((id) => PROFILES.find((p) => p.id === i
 
 Code to review (line-numbered):
 ${numbered}`
-      const text = await callClaude({ system: CODE_REVIEW_SYSTEM, prompt, maxTokens: 16000, onUsage: reqCost.onUsage })
+      const text = await callClaude({
+        system: withCodeReviewReference(CODE_REVIEW_SYSTEM, profiles),
+        prompt,
+        maxTokens: 16000,
+        cacheSystem: true,
+        onUsage: reqCost.onUsage
+      })
       const parsed = parseModelJson(text)
 
       if (externalTool !== 'none' && externalReport.trim()) {

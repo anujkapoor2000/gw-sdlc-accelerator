@@ -60,6 +60,7 @@ export const CATALOG = [
       'AI pattern': 'Structured analysis with severity calibration',
       Products: 'PC · CC · BC · Cross-suite',
       Input: 'Code (line-numbered automatically)',
+      'Reference material': 'Bundled GW Cloud standards by review profile (prompt-cached)',
       Output: 'Scored findings JSON + quick wins',
       Persistence: 'Neon Postgres artifact'
     },
@@ -197,6 +198,7 @@ export const CATALOG = [
       'AI pattern': 'Structured analysis + static scoring',
       Products: 'PC · CC · BC (multi-select)',
       Input: 'Customisation inventory + target release',
+      'Reference material': 'Bundled ski-release upgrade themes (prompt-cached)',
       Output: 'Risk-rated impact JSON + checklist',
       Persistence: 'Neon Postgres artifact (incl. readiness %)'
     },

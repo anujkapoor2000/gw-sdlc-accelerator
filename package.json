@@ -5,8 +5,9 @@
   "description": "NTT DATA Guidewire SDLC Accelerator — AI-assisted lifecycle tooling from requirements to release",
   "type": "module",
   "scripts": {
-    "bundle:katalon": "node scripts/bundle-katalon-reference.js",
-    "prebuild": "npm run bundle:katalon",
+    "bundle:reference": "node scripts/bundle-reference-material.js",
+    "bundle:katalon": "npm run bundle:reference",
+    "prebuild": "npm run bundle:reference",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
