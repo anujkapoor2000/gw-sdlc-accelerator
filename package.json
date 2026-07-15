@@ -8,6 +8,7 @@
     "bundle:reference": "node scripts/bundle-reference-material.js",
     "bundle:katalon": "npm run bundle:reference",
     "prebuild": "npm run bundle:reference",
+    "slides": "python3 scripts/generate-guidewire-slide-pack.py",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"

@@ -1,55 +1,54 @@
-# GW SDLC Accelerator — Slide Pack
+# GuidewireAI — Accelerator Slide Pack
 
-McKinsey-style presentation explaining all accelerators in the GW SDLC Accelerator suite.
+Client-ready deck built on the **NTT DATA Global Insurance Guidewire Template (2025)**.
 
-## Formats
+## Files
 
 | Format | File | Best for |
 |---|---|---|
-| **PowerPoint** | [`accelerators-slide-pack.pptx`](accelerators-slide-pack.pptx) | Client decks, editing in PowerPoint/Keynote/Google Slides |
-| **HTML** | [`accelerators-slide-pack.html`](accelerators-slide-pack.html) | Browser viewing, quick PDF export |
+| **PowerPoint** | [`guidewire-ai-accelerators-slide-pack.pptx`](guidewire-ai-accelerators-slide-pack.pptx) | Client presentations — edit in PowerPoint |
+| **Template (source)** | [`templates/PPT_Global_Insurance_Guidewire_Template_2025.pptx`](templates/PPT_Global_Insurance_Guidewire_Template_2025.pptx) | Master template — do not edit master slides |
+| **Demo images** | [`media/*-demo.png`](media/) | Per-accelerator UI preview screenshots |
+| **Legacy HTML pack** | [`accelerators-slide-pack.html`](accelerators-slide-pack.html) | Browser viewing |
 
-### Regenerate PPTX
+## Regenerate
 
 ```bash
-pip install python-pptx
-python scripts/generate-slide-pack.py
+pip install python-pptx pillow
+python scripts/generate-accelerator-demos.py      # PNG previews → docs/media/
+python scripts/generate-guidewire-slide-pack.py   # Full deck → docs/
 ```
 
-## Viewing (HTML)
+The slide-pack script also runs the code-review and defect-triage GIF generators when available (`public/media/*.gif` is preferred over PNG in the deck).
 
-Open [`accelerators-slide-pack.html`](accelerators-slide-pack.html) in any modern browser.
+## Contents (16 slides)
 
-## Navigation
+1. **Title** — GuidewireAI SDLC Test Accelerators
+2. **Agenda**
+3. **Executive summary** — challenge & response
+4. **Section** — The seven AI accelerators
+5. **Story Forge** — Plan
+6. **Code Review Copilot** — Build
+7. **Test Strategist** — Test
+8. **Flow Automator** — Test
+9. **Test Migrator** — Test
+10. **Release Navigator** — Release
+11. **Defect Triage Agent** — Operate
+12. **Section** — Productionalise the suite
+13. **Katalon Flow Automation** — companion execution asset
+14. **Productionalisation roadmap** — Phase 0–3
+15. **Recommended adoption path**
+16. **Next steps** — closing
 
-| Key | Action |
-|---|---|
-| `→` / `↓` / `Space` | Next slide |
-| `←` / `↑` | Previous slide |
-| `Home` / `End` | First / last slide |
-| `P` | Print or save as PDF |
+## Each accelerator slide includes
 
-## Contents (18 slides)
-
-1. Title — GW SDLC Accelerator
-2. Executive Summary
-3. Lifecycle Architecture (Plan → Operate)
-4. Section: Plan & Build
-5. Story Forge
-6. Code Review Copilot
-7. Section: Test
-8. Test Strategist
-9. Flow Automator
-10. Test Migrator
-11. Section: Analysis
-12. Release Navigator
-13. Defect Triage Agent (agentic)
-14. Katalon Flow Automation companion asset
-15. Technical Architecture
-16. Value at a Glance (ROI table)
-17. Recommended Adoption Path
-18. Next Steps
+- **Purpose** — what problem it solves
+- **Example** — realistic input → output
+- **Key capabilities** — differentiators (incl. bundled reference material & RAG)
+- **Productionalise** — concrete steps to move from demo to production
+- **Demo image/GIF** — right-hand preview (PNG or animated GIF where generated)
 
 ## Source of truth
 
-ROI figures and module descriptions are sourced from [`src/lib/catalog.js`](../src/lib/catalog.js).
+Module descriptions and ROI figures: [`src/lib/catalog.js`](../src/lib/catalog.js)  
+Production roadmap: [`ARCHITECTURE.md`](ARCHITECTURE.md) §7
