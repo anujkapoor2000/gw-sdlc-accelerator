@@ -5,6 +5,7 @@ dist/
 .vercel
 .env
 .env.*
+!.env.example
 
 # Katalon Studio build / run artifacts
 katalon/bin/
