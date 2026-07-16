@@ -2,7 +2,7 @@
 
 import { collectCodebaseFiles, readCodebaseFile, resolvePreset } from './codebase.js'
 import { chunkText, artifactToText } from './chunking.js'
-import { embedTexts } from './embeddings.js'
+import { embedTexts, embeddingModel, embeddingProvider } from './embeddings.js'
 import { ensureSchema, isPgvectorReady } from './schema.js'
 
 function vectorLiteral(vec) {
@@ -39,7 +39,8 @@ export async function indexKnowledgeDoc(sql, doc) {
   if (!chunks.length) return 0
 
   await sql`DELETE FROM sdlc_knowledge_chunks WHERE doc_id = ${doc.id}`
-  const embeddings = await embedTexts(chunks)
+  const useApi = embeddingProvider() !== 'sparse'
+  const embeddings = await embedTexts(chunks, { strict: useApi })
 
   for (let i = 0; i < chunks.length; i++) {
     await insertChunk(sql, {
@@ -52,9 +53,14 @@ export async function indexKnowledgeDoc(sql, doc) {
     })
   }
 
+  const provider = embeddingProvider()
+  const model = embeddingModel()
   await sql`
     UPDATE sdlc_knowledge_docs
-    SET chunk_count = ${chunks.length}, updated_at = now()
+    SET chunk_count = ${chunks.length},
+        updated_at = now(),
+        embedding_provider = ${provider},
+        embedding_model = ${model}
     WHERE id = ${doc.id}
   `
   return chunks.length
@@ -90,7 +96,8 @@ export async function deleteKnowledgeDoc(sql, id) {
 export async function listKnowledgeDocs(sql, projectId) {
   await ensureSchema(sql)
   return sql`
-    SELECT id, title, doc_type, source, chunk_count, metadata, created_at, updated_at
+    SELECT id, title, doc_type, source, chunk_count, metadata,
+           embedding_provider, embedding_model, created_at, updated_at
     FROM sdlc_knowledge_docs
     WHERE project_id = ${projectId}
     ORDER BY updated_at DESC
@@ -128,6 +135,67 @@ export async function syncArtifactsToKnowledge(sql, projectId) {
     added++
   }
   return { added, total: artifacts.length }
+}
+
+/** Index or update a single saved artifact in project knowledge (auto-capture). */
+export async function indexArtifactToKnowledge(sql, projectId, artifact) {
+  await ensureSchema(sql)
+  const text = artifactToText(artifact)
+  const existing = await sql`
+    SELECT id, project_id, title, doc_type, source, content
+    FROM sdlc_knowledge_docs
+    WHERE project_id = ${projectId}
+      AND metadata->>'source_artifact_id' = ${artifact.id}
+    LIMIT 1
+  `
+
+  if (existing.length) {
+    await sql`
+      UPDATE sdlc_knowledge_docs
+      SET title = ${artifact.title},
+          content = ${text},
+          metadata = ${JSON.stringify({ source_artifact_id: artifact.id, module: artifact.module })}::jsonb,
+          updated_at = now()
+      WHERE id = ${existing[0].id}
+    `
+    const count = await indexKnowledgeDoc(sql, {
+      ...existing[0],
+      title: artifact.title,
+      content: text
+    })
+    return { updated: true, chunk_count: count, id: existing[0].id }
+  }
+
+  const doc = await addKnowledgeDoc(sql, {
+    projectId,
+    title: artifact.title,
+    docType: 'artifact',
+    source: 'artifact-sync',
+    content: text,
+    metadata: { source_artifact_id: artifact.id, module: artifact.module }
+  })
+  return { updated: false, ...doc }
+}
+
+/** Re-embed all knowledge docs for a project (e.g. after adding VOYAGE_API_KEY). */
+export async function reindexProjectKnowledge(sql, projectId) {
+  await ensureSchema(sql)
+  const docs = await sql`
+    SELECT id, project_id, title, doc_type, source, content
+    FROM sdlc_knowledge_docs
+    WHERE project_id = ${projectId}
+    ORDER BY created_at
+  `
+  let chunks = 0
+  for (const doc of docs) {
+    chunks += await indexKnowledgeDoc(sql, doc)
+  }
+  return {
+    reindexed: docs.length,
+    chunks,
+    provider: embeddingProvider(),
+    model: embeddingModel()
+  }
 }
 
 /** Replace codebase-indexed docs for a project and re-index from repo paths. */

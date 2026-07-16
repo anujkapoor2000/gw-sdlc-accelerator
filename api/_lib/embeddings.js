@@ -1,4 +1,4 @@
-// Embedding providers — Voyage, OpenAI, or local sparse fallback (512-dim).
+// Embedding providers — Voyage AI (preferred), OpenAI, or local sparse fallback (512-dim).
 
 export const EMBEDDING_DIM = 512
 
@@ -31,7 +31,7 @@ export function sparseEmbed(text) {
   return normalize(vec)
 }
 
-async function voyageEmbed(texts) {
+async function voyageEmbed(texts, inputType = 'document') {
   const res = await fetch('https://api.voyageai.com/v1/embeddings', {
     method: 'POST',
     headers: {
@@ -41,7 +41,7 @@ async function voyageEmbed(texts) {
     body: JSON.stringify({
       model: process.env.VOYAGE_EMBEDDING_MODEL || 'voyage-3-lite',
       input: texts,
-      input_type: 'document',
+      input_type: inputType,
       output_dimension: EMBEDDING_DIM
     })
   })
@@ -80,16 +80,54 @@ export function embeddingProvider() {
   return 'sparse'
 }
 
-/** Embed one or many texts; always returns 512-dim unit vectors. */
-export async function embedTexts(texts) {
+export function embeddingModel() {
+  if (process.env.VOYAGE_API_KEY) {
+    return process.env.VOYAGE_EMBEDDING_MODEL || 'voyage-3-lite'
+  }
+  if (process.env.OPENAI_API_KEY) {
+    return process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small'
+  }
+  return 'sparse-local'
+}
+
+/** Active embedding configuration for status UI and metadata. */
+export function getEmbeddingConfig() {
+  const provider = embeddingProvider()
+  return {
+    provider,
+    model: embeddingModel(),
+    dimension: EMBEDDING_DIM,
+    voyageConfigured: Boolean(process.env.VOYAGE_API_KEY),
+    openaiConfigured: Boolean(process.env.OPENAI_API_KEY)
+  }
+}
+
+/**
+ * Embed document chunks for indexing (Voyage input_type: document).
+ * @param {{ strict?: boolean }} opts — when true, throw instead of sparse fallback if API fails
+ */
+export async function embedTexts(texts, opts = {}) {
+  return embedBatch(texts, { inputType: 'document', strict: opts.strict })
+}
+
+/** Embed a search query (Voyage input_type: query). */
+export async function embedQuery(text, opts = {}) {
+  const [vec] = await embedBatch([text], { inputType: 'query', strict: opts.strict })
+  return vec
+}
+
+async function embedBatch(texts, { inputType = 'document', strict = false } = {}) {
   const list = Array.isArray(texts) ? texts : [texts]
   if (!list.length) return []
 
   const provider = embeddingProvider()
   try {
-    if (provider === 'voyage') return await voyageEmbed(list)
+    if (provider === 'voyage') return await voyageEmbed(list, inputType)
     if (provider === 'openai') return await openaiEmbed(list)
   } catch (err) {
+    if (strict) {
+      throw new Error(`${provider} embedding failed: ${err.message}`)
+    }
     console.warn('Embedding API failed, using sparse fallback:', err.message)
   }
   return list.map(sparseEmbed)

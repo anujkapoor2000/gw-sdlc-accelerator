@@ -1,6 +1,9 @@
 // /api/projects.js — Neon Postgres persistence for projects and saved outputs.
 
 import { ensureSchema, getSql } from './_lib/schema.js'
+import { indexArtifactToKnowledge } from './_lib/rag.js'
+
+const autoIndexArtifacts = () => process.env.RAG_AUTO_INDEX_ARTIFACTS !== 'false'
 
 export default async function handler(req, res) {
   if (!process.env.DATABASE_URL) {
@@ -39,9 +42,25 @@ export default async function handler(req, res) {
         const rows = await sql`
           INSERT INTO sdlc_artifacts (project_id, module, title, content)
           VALUES (${id}, ${module}, ${title}, ${JSON.stringify(content)})
-          RETURNING id, module, title, created_at
+          RETURNING id, module, title, content, created_at
         `
-        return res.status(201).json(rows[0])
+        const saved = rows[0]
+
+        if (autoIndexArtifacts()) {
+          try {
+            await indexArtifactToKnowledge(sql, id, saved)
+          } catch (err) {
+            console.warn('Auto-index artifact to knowledge failed:', err.message)
+          }
+        }
+
+        return res.status(201).json({
+          id: saved.id,
+          module: saved.module,
+          title: saved.title,
+          created_at: saved.created_at,
+          knowledgeIndexed: autoIndexArtifacts()
+        })
       }
     }
 

@@ -67,10 +67,21 @@ export async function ensureSchema(sql = getSql()) {
   await sql`CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_project ON sdlc_knowledge_chunks(project_id)`
   await sql`CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_doc ON sdlc_knowledge_chunks(doc_id)`
 
+  await sql`ALTER TABLE sdlc_knowledge_docs ADD COLUMN IF NOT EXISTS embedding_provider TEXT`
+  await sql`ALTER TABLE sdlc_knowledge_docs ADD COLUMN IF NOT EXISTS embedding_model TEXT`
+
   try {
     await sql`CREATE EXTENSION IF NOT EXISTS vector`
     await sql`ALTER TABLE sdlc_knowledge_chunks ADD COLUMN IF NOT EXISTS embedding vector(512)`
     pgvectorReady = true
+    try {
+      await sql`
+        CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_embedding
+        ON sdlc_knowledge_chunks USING hnsw (embedding vector_cosine_ops)
+      `
+    } catch {
+      // HNSW may be unavailable on some Neon tiers — pgvector column still works.
+    }
   } catch {
     pgvectorReady = false
   }

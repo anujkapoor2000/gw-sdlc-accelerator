@@ -1,6 +1,6 @@
 // Edge-safe RAG retrieval — no Node fs/path (used by api/chat Edge Function).
 
-import { cosineSimilarity, embedTexts, embeddingProvider } from './embeddings.js'
+import { cosineSimilarity, embedQuery, embeddingProvider } from './embeddings.js'
 import { ensureSchema, isPgvectorReady } from './schema.js'
 
 const MODULE_DOC_TYPES = {
@@ -38,7 +38,7 @@ export async function retrieveKnowledge(sql, { projectId, query, module, limit =
   if (!projectId || !trimmed) return { chunks: [], provider: embeddingProvider() }
 
   const preferredTypes = MODULE_DOC_TYPES[module] || null
-  const [queryVec] = await embedTexts([trimmed])
+  const queryVec = await embedQuery(trimmed)
   const usePg = isPgvectorReady()
 
   let rows

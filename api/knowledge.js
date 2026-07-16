@@ -1,11 +1,13 @@
 // /api/knowledge.js — per-project knowledge CRUD, file upload, codebase sync for RAG.
 
 import { CODEBASE_PRESETS, validateUpload } from './_lib/codebase.js'
+import { getRagStatus } from './_lib/rag-status.js'
 import { ensureSchema, getSql } from './_lib/schema.js'
 import {
   addKnowledgeDoc,
   deleteKnowledgeDoc,
   listKnowledgeDocs,
+  reindexProjectKnowledge,
   syncArtifactsToKnowledge,
   syncCodebaseToKnowledge
 } from './_lib/rag.js'
@@ -23,6 +25,19 @@ export default async function handler(req, res) {
   try {
     await ensureSchema(sql)
 
+    if (req.method === 'GET' && action === 'status') {
+      const status = await getRagStatus(sql)
+      if (projectId) {
+        const docs = await listKnowledgeDocs(sql, projectId)
+        status.project = {
+          id: projectId,
+          docCount: docs.length,
+          chunkCount: docs.reduce((n, d) => n + (d.chunk_count || 0), 0)
+        }
+      }
+      return res.status(200).json(status)
+    }
+
     if (req.method === 'GET' && action === 'presets') {
       return res.status(200).json({
         presets: CODEBASE_PRESETS,
@@ -33,6 +48,11 @@ export default async function handler(req, res) {
     if (req.method === 'GET' && projectId) {
       const docs = await listKnowledgeDocs(sql, projectId)
       return res.status(200).json(docs)
+    }
+
+    if (req.method === 'POST' && action === 'reindex' && projectId) {
+      const result = await reindexProjectKnowledge(sql, projectId)
+      return res.status(200).json(result)
     }
 
     if (req.method === 'POST' && action === 'sync-artifacts' && projectId) {

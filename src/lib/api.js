@@ -151,6 +151,9 @@ export const db = {
   listKnowledge: (projectId) =>
     fetch(`/api/knowledge?projectId=${projectId}`).then(handle),
 
+  getRagStatus: (projectId) =>
+    fetch(`/api/knowledge?action=status${projectId ? `&projectId=${projectId}` : ''}`).then(handle),
+
   listCodebasePresets: () =>
     fetch('/api/knowledge?action=presets').then(handle),
 
@@ -181,5 +184,10 @@ export const db = {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ preset, paths })
+    }).then(handle),
+
+  reindexKnowledge: (projectId) =>
+    fetch(`/api/knowledge?action=reindex&projectId=${projectId}`, {
+      method: 'POST'
     }).then(handle)
 }

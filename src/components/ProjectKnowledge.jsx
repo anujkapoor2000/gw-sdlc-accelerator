@@ -49,6 +49,7 @@ export default function ProjectKnowledge({ project, dbError }) {
   const [codebasePaths, setCodebasePaths] = useState('reference')
   const [busy, setBusy] = useState(false)
   const [syncMsg, setSyncMsg] = useState('')
+  const [ragStatus, setRagStatus] = useState(null)
   const fileInputRef = useRef(null)
 
   const refresh = useCallback(async () => {
@@ -65,6 +66,9 @@ export default function ProjectKnowledge({ project, dbError }) {
   useEffect(() => {
     if (!open) return
     refresh()
+    db.getRagStatus(project?.id)
+      .then(setRagStatus)
+      .catch(() => setRagStatus(null))
     db.listCodebasePresets()
       .then((data) => {
         setPresets(data.presets || [])
@@ -153,6 +157,26 @@ export default function ProjectKnowledge({ project, dbError }) {
     }
   }
 
+  async function reindexAll() {
+    if (!project?.id) return
+    if (!confirm('Re-embed all knowledge documents with the current embedding provider (e.g. Voyage)?')) return
+    setBusy(true)
+    setSyncMsg('')
+    try {
+      const result = await db.reindexKnowledge(project.id)
+      setSyncMsg(
+        `Re-indexed ${result.reindexed} doc(s), ${result.chunks} chunk(s) via ${result.provider} (${result.model}).`
+      )
+      await refresh()
+      const status = await db.getRagStatus(project.id)
+      setRagStatus(status)
+    } catch (e) {
+      setSyncMsg(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function removeDoc(id) {
     if (!confirm('Delete this knowledge document and its indexed chunks?')) return
     try {
@@ -166,6 +190,12 @@ export default function ProjectKnowledge({ project, dbError }) {
   if (!project || dbError) return null
 
   const totalChunks = docs.reduce((n, d) => n + (d.chunk_count || 0), 0)
+  const emb = ragStatus?.embedding
+  const providerLabel = emb?.provider === 'voyage'
+    ? `Voyage · ${emb.model}`
+    : emb?.provider === 'openai'
+      ? `OpenAI · ${emb.model}`
+      : 'Sparse (local — add VOYAGE_API_KEY for production RAG)'
 
   return (
     <div className="panel" style={{ marginBottom: 16 }}>
@@ -173,9 +203,16 @@ export default function ProjectKnowledge({ project, dbError }) {
         <div>
           <h3 style={{ margin: 0 }}>Project knowledge (RAG)</h3>
           <p style={{ margin: '4px 0 0', fontSize: 13.5, color: 'var(--slate)' }}>
-            Paste text, upload files, index saved outputs, or point at codebase paths — retrieved per accelerator run.
+            Stored in Neon Postgres with Voyage embeddings. Paste, upload, or sync outputs — retrieved per accelerator run.
             {docs.length > 0 && ` ${docs.length} doc(s), ${totalChunks} chunk(s) indexed.`}
           </p>
+          {ragStatus && (
+            <p style={{ margin: '6px 0 0', fontSize: 12.5, color: 'var(--slate)' }}>
+              Embeddings: <strong>{providerLabel}</strong>
+              {' · '}{ragStatus.pgvectorEnabled ? 'pgvector search' : 'JSON cosine search'}
+              {ragStatus.autoIndexArtifacts && ' · auto-captures saved outputs'}
+            </p>
+          )}
         </div>
         <button className="btn btn-ghost btn-sm" onClick={() => setOpen((o) => !o)}>
           {open ? 'Collapse' : 'Manage'}
@@ -206,7 +243,19 @@ export default function ProjectKnowledge({ project, dbError }) {
             <button className="btn btn-ghost btn-sm" onClick={refresh} disabled={busy}>
               Refresh
             </button>
+            {docs.length > 0 && (
+              <button className="btn btn-ghost btn-sm" onClick={reindexAll} disabled={busy}>
+                Re-embed all (Voyage)
+              </button>
+            )}
           </div>
+
+          {emb?.provider === 'sparse' && (
+            <div className="alert" style={{ marginBottom: 12, fontSize: 13 }}>
+              Add <code>VOYAGE_API_KEY</code> in Vercel environment variables for production-grade semantic search,
+              then click <strong>Re-embed all (Voyage)</strong> to upgrade existing documents.
+            </div>
+          )}
 
           <div className="field" style={{ marginBottom: 12 }}>
             <label htmlFor="pk-codebase">Index from codebase (repo paths)</label>
@@ -282,6 +331,7 @@ export default function ProjectKnowledge({ project, dbError }) {
                     <div style={{ fontWeight: 600 }}>{d.title}</div>
                     <div className="meta">
                       {d.doc_type} · {d.chunk_count} chunks · {d.source}
+                      {d.embedding_provider ? ` · ${d.embedding_provider}` : ''}
                       {d.metadata?.path ? ` · ${d.metadata.path}` : ''}
                       {d.metadata?.filename ? ` · ${d.metadata.filename}` : ''}
                       {' · '}{new Date(d.updated_at || d.created_at).toLocaleString()}
