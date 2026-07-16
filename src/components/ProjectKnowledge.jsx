@@ -10,7 +10,30 @@ const DOC_TYPES = [
   { id: 'notes', label: 'General notes' }
 ]
 
-const UPLOAD_ACCEPT = '.md,.txt,.json,.csv,.gosu,.groovy,.js,.jsx,.sql,.xml,.yaml,.yml,.properties,.java,.feature'
+const UPLOAD_ACCEPT = '.md,.txt,.json,.csv,.gosu,.groovy,.js,.jsx,.sql,.xml,.yaml,.yml,.properties,.java,.feature,.pdf'
+
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  const chunk = 0x8000
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+  }
+  return btoa(binary)
+}
+
+async function readUploadPayload(file) {
+  if (file.name.toLowerCase().endsWith('.pdf')) {
+    return {
+      content: arrayBufferToBase64(await file.arrayBuffer()),
+      encoding: 'base64'
+    }
+  }
+  return {
+    content: await file.text(),
+    encoding: 'text'
+  }
+}
 
 export default function ProjectKnowledge({ project, dbError }) {
   const [open, setOpen] = useState(false)
@@ -74,11 +97,11 @@ export default function ProjectKnowledge({ project, dbError }) {
     setBusy(true)
     setSyncMsg('')
     try {
-      const text = await file.text()
+      const payload = await readUploadPayload(file)
       await db.uploadKnowledgeFile({
         projectId: project.id,
         filename: file.name,
-        content: text,
+        ...payload,
         docType: 'file',
         title: file.name
       })

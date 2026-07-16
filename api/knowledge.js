@@ -47,17 +47,17 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST' && action === 'upload-file') {
-      const { projectId: bodyProjectId, filename, content, docType, title } = req.body || {}
+      const { projectId: bodyProjectId, filename, content, docType, title, encoding } = req.body || {}
       const pid = bodyProjectId || projectId
       if (!pid) return res.status(400).json({ error: 'projectId is required' })
-      const validated = validateUpload({ filename, content })
+      const validated = await validateUpload({ filename, content, encoding })
       const doc = await addKnowledgeDoc(sql, {
         projectId: pid,
         title: title || validated.filename,
         docType: docType || 'file',
         source: 'file-upload',
         content: validated.content,
-        metadata: { filename: validated.filename, bytes: validated.content.length }
+        metadata: validated.metadata || { filename: validated.filename }
       })
       return res.status(201).json(doc)
     }

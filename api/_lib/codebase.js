@@ -40,7 +40,7 @@ export const CODEBASE_PRESETS = [
 const TEXT_EXTENSIONS = new Set([
   '.md', '.txt', '.json', '.js', '.jsx', '.ts', '.tsx',
   '.groovy', '.gosu', '.sql', '.xml', '.csv', '.properties',
-  '.glbl', '.feature', '.java', '.yaml', '.yml'
+  '.glbl', '.feature', '.java', '.yaml', '.yml', '.pdf'
 ])
 
 const SKIP_DIRS = new Set([
@@ -120,21 +120,48 @@ export function readCodebaseFile(file) {
 }
 
 /** Validate uploaded file content from the browser. */
-export function validateUpload({ filename, content }) {
+export async function validateUpload({ filename, content, encoding = 'text' }) {
   const name = String(filename || 'upload.txt').trim()
   if (!name || name.includes('..') || name.includes('/') || name.includes('\\')) {
     throw new Error('Invalid filename')
   }
   const ext = name.slice(name.lastIndexOf('.')).toLowerCase()
   if (!TEXT_EXTENSIONS.has(ext)) {
-    throw new Error(`File type not supported: ${ext || '(none)'}. Use text-based formats.`)
+    throw new Error(`File type not supported: ${ext || '(none)'}. Use text-based formats or PDF.`)
   }
+
+  if (ext === '.pdf') {
+    const { extractPdfText, MAX_PDF_BYTES } = await import('./pdf-extract.js')
+    if (encoding !== 'base64') {
+      throw new Error('PDF uploads must be sent as base64-encoded content')
+    }
+    const buffer = Buffer.from(String(content || ''), 'base64')
+    if (!buffer.length) throw new Error('PDF file is empty')
+    if (buffer.length > MAX_PDF_BYTES) {
+      throw new Error(`PDF too large (max ${Math.round(MAX_PDF_BYTES / (1024 * 1024))} MB)`)
+    }
+    const { text, pages } = await extractPdfText(buffer)
+    if (text.length > MAX_FILE_BYTES) {
+      throw new Error(`Extracted PDF text too large (max ${Math.round(MAX_FILE_BYTES / 1024)} KB)`)
+    }
+    const pageNote = pages ? `, ${pages} page${pages === 1 ? '' : 's'}` : ''
+    return {
+      filename: name,
+      content: `Source: ${name} (PDF${pageNote})\n\n${text}`,
+      metadata: { filename: name, format: 'pdf', pages, bytes: buffer.length }
+    }
+  }
+
   const text = String(content || '')
   if (!text.trim()) throw new Error('File is empty')
   if (text.length > MAX_FILE_BYTES) {
     throw new Error(`File too large (max ${Math.round(MAX_FILE_BYTES / 1024)} KB)`)
   }
-  return { filename: name, content: `Source: ${name}\n\n${text}` }
+  return {
+    filename: name,
+    content: `Source: ${name}\n\n${text}`,
+    metadata: { filename: name, format: 'text', bytes: text.length }
+  }
 }
 
 export function resolvePreset(presetId) {
