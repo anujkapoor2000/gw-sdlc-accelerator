@@ -146,8 +146,18 @@ export const db = {
   listKnowledge: (projectId) =>
     fetch(`/api/knowledge?projectId=${projectId}`).then(handle),
 
+  listCodebasePresets: () =>
+    fetch('/api/knowledge?action=presets').then(handle),
+
   addKnowledge: (payload) =>
     fetch('/api/knowledge', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(handle),
+
+  uploadKnowledgeFile: (payload) =>
+    fetch('/api/knowledge?action=upload-file', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload)
@@ -159,5 +169,12 @@ export const db = {
   syncArtifactKnowledge: (projectId) =>
     fetch(`/api/knowledge?action=sync-artifacts&projectId=${projectId}`, {
       method: 'POST'
+    }).then(handle),
+
+  syncCodebaseKnowledge: (projectId, { preset, paths } = {}) =>
+    fetch(`/api/knowledge?action=sync-codebase&projectId=${projectId}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ preset, paths })
     }).then(handle)
 }

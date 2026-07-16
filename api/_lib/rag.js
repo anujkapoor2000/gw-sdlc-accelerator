@@ -1,17 +1,18 @@
 // RAG indexing and retrieval for per-project knowledge.
 
+import { collectCodebaseFiles, readCodebaseFile, resolvePreset } from './codebase.js'
 import { chunkText, artifactToText } from './chunking.js'
 import { cosineSimilarity, embedTexts, embeddingProvider } from './embeddings.js'
 import { ensureSchema, isPgvectorReady } from './schema.js'
 
 const MODULE_DOC_TYPES = {
-  'story-forge': ['standard', 'notes', 'artifact', 'playbook'],
-  'code-review': ['standard', 'artifact', 'notes', 'playbook'],
-  'test-strategist': ['standard', 'artifact', 'playbook', 'notes'],
-  'flow-automator': ['standard', 'artifact', 'playbook', 'notes'],
-  'test-migrator': ['standard', 'artifact', 'playbook', 'notes'],
-  'release-navigator': ['inventory', 'standard', 'artifact', 'notes'],
-  'defect-triage': ['playbook', 'artifact', 'notes', 'standard']
+  'story-forge': ['standard', 'notes', 'artifact', 'playbook', 'file', 'codebase'],
+  'code-review': ['standard', 'artifact', 'notes', 'playbook', 'file', 'codebase'],
+  'test-strategist': ['standard', 'artifact', 'playbook', 'notes', 'file', 'codebase'],
+  'flow-automator': ['standard', 'artifact', 'playbook', 'notes', 'file', 'codebase'],
+  'test-migrator': ['standard', 'artifact', 'playbook', 'notes', 'file', 'codebase'],
+  'release-navigator': ['inventory', 'standard', 'artifact', 'notes', 'file', 'codebase'],
+  'defect-triage': ['playbook', 'artifact', 'notes', 'standard', 'file', 'codebase']
 }
 
 const RAG_HEADER = `PROJECT KNOWLEDGE (retrieved) — client-specific material for this engagement.
@@ -140,6 +141,44 @@ export async function syncArtifactsToKnowledge(sql, projectId) {
     added++
   }
   return { added, total: artifacts.length }
+}
+
+/** Replace codebase-indexed docs for a project and re-index from repo paths. */
+export async function syncCodebaseToKnowledge(sql, projectId, { paths, preset } = {}) {
+  await ensureSchema(sql)
+  let pathList = Array.isArray(paths) ? paths : []
+  if (preset) pathList = [...pathList, ...resolvePreset(preset)]
+  pathList = [...new Set(pathList.map((p) => String(p).trim()).filter(Boolean))]
+  if (!pathList.length) throw new Error('paths or preset is required')
+
+  await sql`
+    DELETE FROM sdlc_knowledge_docs
+    WHERE project_id = ${projectId} AND source = 'codebase-sync'
+  `
+
+  const files = collectCodebaseFiles(pathList)
+  let added = 0
+  let skipped = 0
+
+  for (const file of files) {
+    try {
+      const content = readCodebaseFile(file)
+      if (!content.trim()) { skipped++; continue }
+      await addKnowledgeDoc(sql, {
+        projectId,
+        title: file.relativePath,
+        docType: 'codebase',
+        source: 'codebase-sync',
+        content,
+        metadata: { path: file.relativePath, sync_paths: pathList }
+      })
+      added++
+    } catch {
+      skipped++
+    }
+  }
+
+  return { added, skipped, scanned: files.length, paths: pathList }
 }
 
 function rankChunks(rows, queryVec, limit) {

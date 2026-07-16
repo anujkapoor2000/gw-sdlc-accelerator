@@ -102,7 +102,7 @@ for setup, running headless in CI, and adapting locators to a customised environ
 ## Extending
 
 - **Reference material**: Bundled corpora under `/reference` are injected into accelerator prompts (Katalon libs, GW Cloud standards, ski-release themes). Re-run `npm run bundle:reference` after edits; `prebuild` does this on deploy.
-- **Per-project knowledge (RAG)**: Add client standards and inventories via **Project knowledge** in the UI, or index saved outputs. Enable **Use project knowledge (RAG)** in the project bar; chunks are embedded (Voyage/OpenAI if configured, else sparse fallback) and retrieved per accelerator run. Optional `pgvector` in Neon speeds retrieval at scale.
+- **Per-project knowledge (RAG)**: Paste text, **upload files** (.md, .gosu, .groovy, .json, …), **index codebase paths** (`reference`, `katalon`, `src/lib`, …), or sync saved outputs via **Project knowledge**. Enable **Use project knowledge (RAG)** in the project bar; chunks are embedded and retrieved per accelerator run.
 - **New module**: add a system prompt in `src/lib/prompts.js` (demand strict JSON), a module component in `src/modules/`, and a rail entry in `src/App.jsx`
 - **New review profile**: extend `PROFILES` in `CodeReview.jsx` — the prompt picks up the selected labels automatically
 - **New external static-analysis tool** (beyond SonarQube/ESLint/Checkstyle): add a parser to `src/lib/externalFindings.js` that normalizes the tool's report into `{ source, severity, category, location, issue, recommendation, standardRef }`, and register it in `EXTERNAL_TOOLS` — a live SonarQube/SonarCloud Web API proxy (`api/sonarqube.js`, same pattern as `api/datadog.js`) is a natural follow-up to the current paste/upload flow
