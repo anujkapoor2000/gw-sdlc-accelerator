@@ -77,7 +77,7 @@ function buildSystemPayload(baseSystem, cacheSystem, ragContext) {
   return blocks
 }
 
-async function attachProjectKnowledge(body) {
+async function attachProjectKnowledge(body, requestUrl) {
   const {
     system,
     project_id: projectId,
@@ -90,21 +90,23 @@ async function attachProjectKnowledge(body) {
     return { baseSystem: system, ragContext: '' }
   }
 
+  // RAG runs on the Node serverless /api/knowledge route — Edge cannot import fs/path/Neon.
   try {
-    const { getSql, ensureSchema } = await import('./_lib/schema.js')
-    const { retrieveKnowledge, formatRetrievedContext } = await import('./_lib/rag-retrieval.js')
-    const sql = getSql()
-    await ensureSchema(sql)
-    const { chunks } = await retrieveKnowledge(sql, {
-      projectId,
-      query: ragQuery,
-      module: ragModule,
-      limit: 8
+    const url = new URL('/api/knowledge', requestUrl)
+    url.searchParams.set('action', 'retrieve')
+    const res = await fetch(url.toString(), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        projectId,
+        query: ragQuery,
+        module: ragModule,
+        limit: 8
+      })
     })
-    return {
-      baseSystem: system,
-      ragContext: formatRetrievedContext(chunks)
-    }
+    if (!res.ok) return { baseSystem: system, ragContext: '' }
+    const data = await res.json()
+    return { baseSystem: system, ragContext: data.context || '' }
   } catch {
     return { baseSystem: system, ragContext: '' }
   }
@@ -130,7 +132,7 @@ export default async function handler(req) {
     return jsonRes({ error: 'messages array is required' }, 400)
   }
 
-  const { baseSystem, ragContext } = await attachProjectKnowledge(body)
+  const { baseSystem, ragContext } = await attachProjectKnowledge(body, req.url)
   const systemPayload = buildSystemPayload(baseSystem, cacheSystem, ragContext)
 
   let upstream

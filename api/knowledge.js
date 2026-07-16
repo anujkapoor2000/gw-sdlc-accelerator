@@ -2,6 +2,7 @@
 
 import { CODEBASE_PRESETS, validateUpload } from './_lib/codebase.js'
 import { getRagStatus } from './_lib/rag-status.js'
+import { retrieveKnowledge, formatRetrievedContext } from './_lib/rag-retrieval.js'
 import { ensureSchema, getSql } from './_lib/schema.js'
 import {
   addKnowledgeDoc,
@@ -48,6 +49,25 @@ export default async function handler(req, res) {
     if (req.method === 'GET' && projectId) {
       const docs = await listKnowledgeDocs(sql, projectId)
       return res.status(200).json(docs)
+    }
+
+    if (req.method === 'POST' && action === 'retrieve') {
+      const { projectId: bodyProjectId, query, module, limit } = req.body || {}
+      const pid = bodyProjectId || projectId
+      if (!pid || !String(query || '').trim()) {
+        return res.status(200).json({ context: '', chunks: [], provider: 'none' })
+      }
+      const { chunks, provider } = await retrieveKnowledge(sql, {
+        projectId: pid,
+        query,
+        module,
+        limit: limit || 8
+      })
+      return res.status(200).json({
+        context: formatRetrievedContext(chunks),
+        chunks,
+        provider
+      })
     }
 
     if (req.method === 'POST' && action === 'reindex' && projectId) {
