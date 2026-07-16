@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { db } from '../lib/api.js'
+import { assertUploadSize, formatBytes, MAX_EXTRACTED_TEXT_BYTES } from '../lib/uploadLimits.js'
 
 const DOC_TYPES = [
   { id: 'standard', label: 'Client standards' },
@@ -12,27 +13,28 @@ const DOC_TYPES = [
 
 const UPLOAD_ACCEPT = '.md,.txt,.json,.csv,.gosu,.groovy,.js,.jsx,.sql,.xml,.yaml,.yml,.properties,.java,.feature,.pdf'
 
-function arrayBufferToBase64(buffer) {
-  const bytes = new Uint8Array(buffer)
-  let binary = ''
-  const chunk = 0x8000
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
-  }
-  return btoa(binary)
-}
-
 async function readUploadPayload(file) {
+  assertUploadSize(file)
+
   if (file.name.toLowerCase().endsWith('.pdf')) {
-    return {
-      content: arrayBufferToBase64(await file.arrayBuffer()),
-      encoding: 'base64'
+    const { extractPdfTextClient } = await import('../lib/pdfClientExtract.js')
+    const { text, pages } = await extractPdfTextClient(await file.arrayBuffer())
+    if (text.length > MAX_EXTRACTED_TEXT_BYTES) {
+      throw new Error(
+        `Extracted text is too large (${formatBytes(text.length)}). ` +
+        `Max ${formatBytes(MAX_EXTRACTED_TEXT_BYTES)} — split the document or paste a section.`
+      )
     }
+    return { content: text, encoding: 'extracted', pages }
   }
-  return {
-    content: await file.text(),
-    encoding: 'text'
+
+  const text = await file.text()
+  if (text.length > MAX_EXTRACTED_TEXT_BYTES) {
+    throw new Error(
+      `File is too large (${formatBytes(text.length)}). Max ${formatBytes(MAX_EXTRACTED_TEXT_BYTES)} for text uploads.`
+    )
   }
+  return { content: text, encoding: 'text' }
 }
 
 export default function ProjectKnowledge({ project, dbError }) {
@@ -191,6 +193,9 @@ export default function ProjectKnowledge({ project, dbError }) {
             <button className="btn btn-ghost btn-sm" onClick={() => fileInputRef.current?.click()} disabled={busy}>
               Upload file
             </button>
+            <span className="hint" style={{ alignSelf: 'center' }}>
+              Text max 500 KB · PDFs extracted in browser (up to 15 MB)
+            </span>
             <input
               ref={fileInputRef}
               type="file"

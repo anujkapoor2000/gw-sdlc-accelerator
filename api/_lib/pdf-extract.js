@@ -1,8 +1,9 @@
-// Extract plain text from PDF uploads (Node.js serverless only).
+// Extract plain text from PDF uploads (Node.js serverless fallback when client cannot extract).
 
 import pdf from 'pdf-parse/lib/pdf-parse.js'
+import { MAX_PDF_BYTES } from './upload-limits.js'
 
-export const MAX_PDF_BYTES = 2_000_000
+export { MAX_PDF_BYTES }
 
 /** Extract searchable text from a PDF buffer. */
 export async function extractPdfText(buffer) {

@@ -112,6 +112,11 @@ export function parseModelJson(text) {
 // ---------- persistence ----------
 
 async function handle(res) {
+  if (res.status === 413) {
+    throw new Error(
+      'Upload too large (platform limit 4.5 MB). For PDFs, use a smaller file or paste extracted text. Text files max 500 KB.'
+    )
+  }
   const data = await res.json().catch(() => null)
   if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`)
   return data ?? {}

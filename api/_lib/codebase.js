@@ -120,7 +120,7 @@ export function readCodebaseFile(file) {
 }
 
 /** Validate uploaded file content from the browser. */
-export async function validateUpload({ filename, content, encoding = 'text' }) {
+export async function validateUpload({ filename, content, encoding = 'text', pages = null }) {
   const name = String(filename || 'upload.txt').trim()
   if (!name || name.includes('..') || name.includes('/') || name.includes('\\')) {
     throw new Error('Invalid filename')
@@ -131,24 +131,41 @@ export async function validateUpload({ filename, content, encoding = 'text' }) {
   }
 
   if (ext === '.pdf') {
+    // Client-side extraction — only plain text is sent (avoids Vercel 4.5 MB body limit).
+    if (encoding === 'extracted') {
+      const text = String(content || '').replace(/\r\n/g, '\n').trim()
+      if (!text) throw new Error('PDF extract is empty')
+      if (text.length > MAX_FILE_BYTES) {
+        throw new Error(`Extracted PDF text too large (max ${Math.round(MAX_FILE_BYTES / 1024)} KB). Split the document or paste a section.`)
+      }
+      const pageCount = Number(pages) || 0
+      const pageNote = pageCount ? `, ${pageCount} page${pageCount === 1 ? '' : 's'}` : ''
+      return {
+        filename: name,
+        content: `Source: ${name} (PDF${pageNote})\n\n${text}`,
+        metadata: { filename: name, format: 'pdf', pages: pageCount || null, bytes: text.length, extractedClientSide: true }
+      }
+    }
+
+    // Legacy server-side extraction (base64) — keep under ~3 MB raw to fit Vercel limit.
     const { extractPdfText, MAX_PDF_BYTES } = await import('./pdf-extract.js')
     if (encoding !== 'base64') {
-      throw new Error('PDF uploads must be sent as base64-encoded content')
+      throw new Error('PDF uploads must use client extraction or base64 encoding')
     }
     const buffer = Buffer.from(String(content || ''), 'base64')
     if (!buffer.length) throw new Error('PDF file is empty')
     if (buffer.length > MAX_PDF_BYTES) {
-      throw new Error(`PDF too large (max ${Math.round(MAX_PDF_BYTES / (1024 * 1024))} MB)`)
+      throw new Error(`PDF too large (max ${Math.round(MAX_PDF_BYTES / (1024 * 1024))} MB). Use a smaller file or paste extracted text.`)
     }
-    const { text, pages } = await extractPdfText(buffer)
+    const { text, pages: pdfPages } = await extractPdfText(buffer)
     if (text.length > MAX_FILE_BYTES) {
       throw new Error(`Extracted PDF text too large (max ${Math.round(MAX_FILE_BYTES / 1024)} KB)`)
     }
-    const pageNote = pages ? `, ${pages} page${pages === 1 ? '' : 's'}` : ''
+    const pageNote = pdfPages ? `, ${pdfPages} page${pdfPages === 1 ? '' : 's'}` : ''
     return {
       filename: name,
       content: `Source: ${name} (PDF${pageNote})\n\n${text}`,
-      metadata: { filename: name, format: 'pdf', pages, bytes: buffer.length }
+      metadata: { filename: name, format: 'pdf', pages: pdfPages, bytes: buffer.length }
     }
   }
 
