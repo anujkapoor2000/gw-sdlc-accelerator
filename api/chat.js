@@ -92,7 +92,7 @@ async function attachProjectKnowledge(body) {
 
   try {
     const { getSql, ensureSchema } = await import('./_lib/schema.js')
-    const { retrieveKnowledge, formatRetrievedContext } = await import('./_lib/rag.js')
+    const { retrieveKnowledge, formatRetrievedContext } = await import('./_lib/rag-retrieval.js')
     const sql = getSql()
     await ensureSchema(sql)
     const { chunks } = await retrieveKnowledge(sql, {
