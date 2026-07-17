@@ -1,8 +1,14 @@
-// Shared upload limits (must stay under Vercel's 4.5 MB request body cap).
+// Shared upload limits — each API request must stay under Vercel's 4.5 MB body cap.
 
-export const MAX_TEXT_UPLOAD_BYTES = 512_000
-export const MAX_PDF_EXTRACT_BYTES = 15_000_000 // max PDF size to parse in browser
-export const MAX_EXTRACTED_TEXT_BYTES = 512_000
+/** Max raw PDF size to parse in the browser. */
+export const MAX_PDF_FILE_BYTES = 50_000_000
+
+/** Max text per indexed knowledge document (one HTTP upload). */
+export const MAX_KNOWLEDGE_DOC_BYTES = 1_400_000
+
+/** Legacy alias used by text file uploads. */
+export const MAX_TEXT_UPLOAD_BYTES = MAX_KNOWLEDGE_DOC_BYTES
+export const MAX_EXTRACTED_TEXT_BYTES = MAX_KNOWLEDGE_DOC_BYTES
 
 export function formatBytes(n) {
   if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`
@@ -12,7 +18,7 @@ export function formatBytes(n) {
 
 export function assertUploadSize(file) {
   const isPdf = file.name.toLowerCase().endsWith('.pdf')
-  const max = isPdf ? MAX_PDF_EXTRACT_BYTES : MAX_TEXT_UPLOAD_BYTES
+  const max = isPdf ? MAX_PDF_FILE_BYTES : MAX_KNOWLEDGE_DOC_BYTES
   if (file.size > max) {
     throw new Error(
       `${file.name} is too large (${formatBytes(file.size)}). ` +

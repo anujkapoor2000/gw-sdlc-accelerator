@@ -13,28 +13,52 @@ const DOC_TYPES = [
 
 const UPLOAD_ACCEPT = '.md,.txt,.json,.csv,.gosu,.groovy,.js,.jsx,.sql,.xml,.yaml,.yml,.properties,.java,.feature,.pdf'
 
-async function readUploadPayload(file) {
+async function readUploadPayloads(file) {
   assertUploadSize(file)
 
   if (file.name.toLowerCase().endsWith('.pdf')) {
-    const { extractPdfTextClient } = await import('../lib/pdfClientExtract.js')
-    const { text, pages } = await extractPdfTextClient(await file.arrayBuffer())
-    if (text.length > MAX_EXTRACTED_TEXT_BYTES) {
-      throw new Error(
-        `Extracted text is too large (${formatBytes(text.length)}). ` +
-        `Max ${formatBytes(MAX_EXTRACTED_TEXT_BYTES)} — split the document or paste a section.`
-      )
-    }
-    return { content: text, encoding: 'extracted', pages }
+    const { extractPdfInParts } = await import('../lib/pdfClientExtract.js')
+    const { parts, totalPages } = await extractPdfInParts(await file.arrayBuffer())
+    const base = file.name.replace(/\.pdf$/i, '')
+
+    return parts.map((part) => {
+      const pageLabel = part.pageStart === part.pageEnd
+        ? `p.${part.pageStart}`
+        : `pp.${part.pageStart}-${part.pageEnd}`
+      const title = parts.length > 1
+        ? `${base}.pdf (${pageLabel}, ${part.partIndex}/${part.totalParts})`
+        : file.name
+
+      return {
+        filename: file.name,
+        title,
+        content: part.text,
+        encoding: 'extracted',
+        pages: part.pageEnd - part.pageStart + 1,
+        meta: {
+          pageStart: part.pageStart,
+          pageEnd: part.pageEnd,
+          partIndex: part.partIndex,
+          totalParts: part.totalParts,
+          totalPages
+        }
+      }
+    })
   }
 
   const text = await file.text()
   if (text.length > MAX_EXTRACTED_TEXT_BYTES) {
     throw new Error(
-      `File is too large (${formatBytes(text.length)}). Max ${formatBytes(MAX_EXTRACTED_TEXT_BYTES)} for text uploads.`
+      `File is too large (${formatBytes(text.length)}). ` +
+      `Max ${formatBytes(MAX_EXTRACTED_TEXT_BYTES)} per upload — split the file or paste in sections.`
     )
   }
-  return { content: text, encoding: 'text' }
+  return [{
+    filename: file.name,
+    title: file.name,
+    content: text,
+    encoding: 'text'
+  }]
 }
 
 export default function ProjectKnowledge({ project, dbError }) {
@@ -103,15 +127,28 @@ export default function ProjectKnowledge({ project, dbError }) {
     setBusy(true)
     setSyncMsg('')
     try {
-      const payload = await readUploadPayload(file)
-      await db.uploadKnowledgeFile({
-        projectId: project.id,
-        filename: file.name,
-        ...payload,
-        docType: 'file',
-        title: file.name
-      })
-      setSyncMsg(`Indexed file: ${file.name}`)
+      const payloads = await readUploadPayloads(file)
+      for (let i = 0; i < payloads.length; i++) {
+        const p = payloads[i]
+        if (payloads.length > 1) {
+          setSyncMsg(`Extracting & indexing ${file.name} — part ${i + 1} of ${payloads.length}…`)
+        }
+        await db.uploadKnowledgeFile({
+          projectId: project.id,
+          filename: p.filename,
+          content: p.content,
+          encoding: p.encoding,
+          pages: p.pages,
+          meta: p.meta,
+          docType: 'file',
+          title: p.title
+        })
+      }
+      setSyncMsg(
+        payloads.length > 1
+          ? `Indexed ${payloads.length} parts from ${file.name} (${payloads.reduce((n, p) => n + p.content.length, 0)} chars total).`
+          : `Indexed file: ${file.name}`
+      )
       await refresh()
     } catch (err) {
       setSyncMsg(err.message)
@@ -231,7 +268,7 @@ export default function ProjectKnowledge({ project, dbError }) {
               Upload file
             </button>
             <span className="hint" style={{ alignSelf: 'center' }}>
-              Text max 500 KB · PDFs extracted in browser (up to 15 MB)
+              PDFs up to 50 MB · auto-split into ~1.4 MB parts for indexing
             </span>
             <input
               ref={fileInputRef}

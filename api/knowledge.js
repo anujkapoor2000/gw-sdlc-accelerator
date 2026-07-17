@@ -87,7 +87,10 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST' && action === 'upload-file') {
-      const { projectId: bodyProjectId, filename, content, docType, title, encoding, pages } = req.body || {}
+      const {
+        projectId: bodyProjectId, filename, content, docType, title,
+        encoding, pages, meta
+      } = req.body || {}
       const pid = bodyProjectId || projectId
       if (!pid) return res.status(400).json({ error: 'projectId is required' })
       const validated = await validateUpload({ filename, content, encoding, pages })
@@ -97,7 +100,7 @@ export default async function handler(req, res) {
         docType: docType || 'file',
         source: 'file-upload',
         content: validated.content,
-        metadata: validated.metadata || { filename: validated.filename }
+        metadata: { ...(validated.metadata || {}), ...(meta || {}) }
       })
       return res.status(201).json(doc)
     }

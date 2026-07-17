@@ -2,6 +2,7 @@
 
 import { readFileSync, readdirSync, statSync } from 'fs'
 import { join, resolve, sep } from 'path'
+import { MAX_KNOWLEDGE_DOC_BYTES } from './upload-limits.js'
 
 const REPO_ROOT = resolve(process.cwd())
 
@@ -47,7 +48,7 @@ const SKIP_DIRS = new Set([
   'node_modules', '.git', 'dist', '.vercel', 'coverage', '__pycache__'
 ])
 
-const MAX_FILE_BYTES = 512_000
+const MAX_FILE_BYTES = MAX_KNOWLEDGE_DOC_BYTES
 const MAX_FILES_PER_SYNC = 200
 
 /** Normalise user path and verify it sits under an allowed root. */
