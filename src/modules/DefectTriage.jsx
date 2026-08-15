@@ -4,7 +4,9 @@ import { retrieveProjectContext } from '../lib/retrieval.js'
 import { queryDatadogLogs, rangeToIso, TIME_RANGES } from '../lib/datadog.js'
 import {
   buildDefectReportFromError,
+  buildDefectReportFromMonitor,
   buildEvidenceForError,
+  extractDatadogLogQuery,
   filterAnalysisByService,
   loadDatadogLogFile
 } from '../lib/logLoader.js'
@@ -195,6 +197,14 @@ ${JSON.stringify(routing, null, 2)}`,
     setServiceFilter('all')
     setBulkResults([])
     setBulkProgress('')
+    if (analysis.kind === 'monitor' && analysis.monitor) {
+      setDefect(buildDefectReportFromMonitor(analysis.monitor, { product, env }))
+      setEvidence(JSON.stringify(analysis.monitor, null, 2))
+      setSelectedErrorId('')
+      const q = extractDatadogLogQuery(analysis.monitor.query)
+      if (q) setDdQuery(q)
+      return 'monitor'
+    }
     if (analysis.errors.length === 0) return false
     selectError(analysis, analysis.errors[0].id)
     return true
@@ -212,7 +222,10 @@ ${JSON.stringify(routing, null, 2)}`,
 
     try {
       const analysis = await loadDatadogLogFile(file)
-      if (!applyLogAnalysis(analysis)) {
+      const applied = applyLogAnalysis(analysis)
+      if (applied === 'monitor') {
+        setLogError('')
+      } else if (!applied) {
         setLogError(`Loaded "${file.name}" (${analysis.totalEntries} entries) but no errors were detected. You can still paste content into the evidence field manually.`)
       }
     } catch (err) {
@@ -516,6 +529,15 @@ ${JSON.stringify(routing, null, 2)}`,
         </div>
 
         {logError && <div className="alert err" style={{ marginBottom: 12 }}>{logError}</div>}
+
+        {logAnalysis?.kind === 'monitor' && (
+          <div className="alert info" style={{ marginBottom: 12 }}>
+            <strong>Datadog alert definition loaded</strong> — this JSON is a monitor config, not log lines.
+            The defect field is pre-filled from the alert. For stack traces and root-cause analysis, export error logs
+            from Datadog Logs Explorer or use <strong>Live Datadog query</strong>
+            {logAnalysis.monitor?.query ? ' (query copied from the alert)' : ''}.
+          </div>
+        )}
 
         {logAnalysis && visibleErrors.length > 0 && (
           <div className="field" style={{ marginBottom: 16 }}>

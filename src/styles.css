@@ -404,6 +404,7 @@ ul.plain li::before { content: ''; position: absolute; left: 2px; top: 11px; wid
 
 .alert { border-radius: 10px; padding: 12px 14px; font-size: 14px; margin-bottom: 16px; }
 .alert.err { background: #fef2f2; color: var(--crit); border: 1px solid #f6cdcd; }
+.alert.info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
 .alert.ok { background: var(--green-tint); color: var(--ok); border: 1px solid #bfe6cf; }
 
 .spinner {
