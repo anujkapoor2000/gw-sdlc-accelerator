@@ -247,6 +247,8 @@ export const SHARED_CONFIG = [
   { param: 'ANTHROPIC_API_KEY', values: 'Vercel env var — server-side only, powers all agents' },
   { param: 'ANTHROPIC_MODEL', values: 'Optional override, defaults to claude-sonnet-4-6' },
   { param: 'DATABASE_URL', values: 'Neon pooled connection string (plain env var, not a Secret)' },
+  { param: 'EMBEDDING_API_KEY', values: 'Optional OpenAI embeddings key for project knowledge vector search (falls back to keyword search)' },
+  { param: 'GITHUB_TOKEN', values: 'Optional GitHub token for indexing private repos in Project Knowledge' },
   { param: 'DD_API_KEY', values: 'Datadog API key — server-side only, powers live log queries in Defect Triage' },
   { param: 'DD_APP_KEY', values: 'Datadog application key — required with DD_API_KEY for Logs Search API' },
   { param: 'DD_SITE', values: 'Optional Datadog site (default datadoghq.com; use datadoghq.eu, us3.datadoghq.com, etc.)' }

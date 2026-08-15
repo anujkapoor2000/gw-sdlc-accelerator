@@ -1,5 +1,6 @@
-import React, { useMemo, useRef, useState } from 'react'
-import { callClaude, parseModelJson } from '../lib/api.js'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { callClaude, knowledge, parseModelJson } from '../lib/api.js'
+import { retrieveProjectContext } from '../lib/retrieval.js'
 import { queryDatadogLogs, rangeToIso, TIME_RANGES } from '../lib/datadog.js'
 import {
   buildDefectReportFromError,
@@ -49,6 +50,9 @@ export default function DefectTriage({ project }) {
   const [serviceFilter, setServiceFilter] = useState('all')
   const [bulkResults, setBulkResults] = useState([])
   const [bulkProgress, setBulkProgress] = useState('')
+  const [useProjectKnowledge, setUseProjectKnowledge] = useState(true)
+  const [retrievedChunks, setRetrievedChunks] = useState([])
+  const [knowledgeChunkCount, setKnowledgeChunkCount] = useState(0)
   const fileInputRef = useRef(null)
   const runId = useRef(0)
   const reqCost = useRequestCost()
@@ -57,6 +61,17 @@ export default function DefectTriage({ project }) {
     if (!logAnalysis) return []
     return filterAnalysisByService(logAnalysis, serviceFilter).errors
   }, [logAnalysis, serviceFilter])
+
+  useEffect(() => {
+    if (!project?.id) {
+      setKnowledgeChunkCount(0)
+      return
+    }
+    knowledge
+      .status(project.id)
+      .then((s) => setKnowledgeChunkCount(s?.chunkCount || 0))
+      .catch(() => setKnowledgeChunkCount(0))
+  }, [project?.id])
 
   function pushStep(step) {
     setSteps((s) => [...s, step])
@@ -81,7 +96,7 @@ export default function DefectTriage({ project }) {
   }
   const stepsCountRef = useRef(0)
 
-  function buildBaseContext(defectText, evidenceText, sourceLabel) {
+  function buildBaseContext(defectText, evidenceText, sourceLabel, contextPack) {
     return `Product: ${product}
 Environment: ${env}
 ${sourceLabel ? `Log source: ${sourceLabel}` : ''}
@@ -90,11 +105,30 @@ Defect report:
 ${defectText}
 
 Supporting material (logs / stack trace / code, may be empty):
-${evidenceText || '(none provided)'}`
+${evidenceText || '(none provided)'}
+
+${contextPack || '=== Retrieved from project knowledge ===\n(project knowledge disabled or no project selected)'}`
   }
 
-  async function runPipeline({ defectText, evidenceText, sourceLabel, thisRun }) {
-    const baseContext = buildBaseContext(defectText, evidenceText, sourceLabel)
+  async function fetchContextPack(defectText, evidenceText) {
+    if (!project?.id || !useProjectKnowledge) {
+      return { chunks: [], contextPack: '' }
+    }
+    const result = await retrieveProjectContext({
+      projectId: project.id,
+      defectText,
+      evidenceText,
+      logAnalysis,
+      selectedErrorId,
+      product,
+      enabled: useProjectKnowledge
+    })
+    setRetrievedChunks(result.chunks)
+    return result
+  }
+
+  async function runPipeline({ defectText, evidenceText, sourceLabel, contextPack, thisRun }) {
+    const baseContext = buildBaseContext(defectText, evidenceText, sourceLabel, contextPack)
 
     const intake = await runAgent('intake', TRIAGE_INTAKE_SYSTEM, baseContext,
       'Parsing the report into a structured case file')
@@ -235,6 +269,7 @@ ${JSON.stringify(routing, null, 2)}`,
     setFinalCase(null)
     setBulkResults([])
     setBulkProgress('')
+    setRetrievedChunks([])
     setRunning(true)
     reqCost.reset()
 
@@ -256,7 +291,8 @@ ${JSON.stringify(routing, null, 2)}`,
     }
 
     try {
-      const result = await runPipeline({ defectText, evidenceText, sourceLabel, thisRun })
+      const { contextPack } = await fetchContextPack(defectText, evidenceText)
+      const result = await runPipeline({ defectText, evidenceText, sourceLabel, contextPack, thisRun })
       if (thisRun === runId.current) setFinalCase(result)
     } catch (e) {
       if (thisRun === runId.current && e.message !== 'Cancelled') setError(e.message)
@@ -293,8 +329,24 @@ ${JSON.stringify(routing, null, 2)}`,
       const evidenceText = buildEvidenceForError(logAnalysis, err.id)
       const sourceLabel = `${logAnalysis.filename} · error ${i + 1}/${errors.length}`
 
+      let contextPack = ''
       try {
-        const finalCase = await runPipeline({ defectText, evidenceText, sourceLabel, thisRun })
+        const retrieval = await retrieveProjectContext({
+          projectId: project?.id,
+          defectText,
+          evidenceText,
+          logAnalysis,
+          selectedErrorId: err.id,
+          product,
+          enabled: useProjectKnowledge && Boolean(project?.id)
+        })
+        contextPack = retrieval.contextPack
+      } catch {
+        contextPack = ''
+      }
+
+      try {
+        const finalCase = await runPipeline({ defectText, evidenceText, sourceLabel, contextPack, thisRun })
         results.push({ error: err, finalCase, status: 'done' })
       } catch (e) {
         if (e.message === 'Cancelled') break
@@ -339,6 +391,19 @@ ${JSON.stringify(routing, null, 2)}`,
               {ENVIRONMENTS.map((p) => <option key={p}>{p}</option>)}
             </select>
           </div>
+          {project && knowledgeChunkCount > 0 && (
+            <div className="field" style={{ display: 'flex', alignItems: 'flex-end' }}>
+              <label className="knowledge-toggle">
+                <input
+                  type="checkbox"
+                  checked={useProjectKnowledge}
+                  onChange={(e) => setUseProjectKnowledge(e.target.checked)}
+                  disabled={running}
+                />
+                Use project knowledge ({knowledgeChunkCount} chunks)
+              </label>
+            </div>
+          )}
         </div>
         <div className="field">
           <label htmlFor="dt-defect">Defect report</label>
@@ -591,8 +656,33 @@ ${JSON.stringify(routing, null, 2)}`,
 
       {finalCase && bulkResults.length <= 1 && (
         <>
+          {retrievedChunks.length > 0 && (
+            <div className="panel">
+              <h3>Sources used ({retrievedChunks.length})</h3>
+              <p className="log-dashboard-sub" style={{ marginBottom: 10 }}>
+                Retrieved from this project&apos;s indexed docs, code, and prior triage artifacts.
+              </p>
+              <ul className="plain knowledge-source-list">
+                {retrievedChunks.map((c) => (
+                  <li key={c.id} className="knowledge-chunk-cite">
+                    <span className="tag">{c.sourceType}</span>
+                    <code style={{ fontSize: 12 }}>{c.citeKey}</code>
+                    <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0' }}>
+                      {c.text.slice(0, 240)}{c.text.length > 240 ? '…' : ''}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div className="panel">
             <h3>Triage outcome</h3>
+            {retrievedChunks.length > 0 && (
+              <p style={{ fontSize: 13.5, marginBottom: 10 }}>
+                <span className="tag green">Grounded in {retrievedChunks.length} project source{retrievedChunks.length !== 1 ? 's' : ''}</span>
+              </p>
+            )}
             <div className="finding-head" style={{ marginBottom: 10 }}>
               <span className={`tag ${PRIORITY_TAG[finalCase.routing.priority] || ''}`}>{finalCase.routing.priority}</span>
               <span className="tag">{finalCase.routing.ticketType}</span>

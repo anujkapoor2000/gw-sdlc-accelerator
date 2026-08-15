@@ -562,6 +562,37 @@ ul.plain li::before { content: ''; position: absolute; left: 2px; top: 11px; wid
   .gauge-fill { animation: none; width: 69%; }
 }
 
+/* project knowledge (Dashboard + Defect Triage grounding) */
+.knowledge-section {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  margin-top: 8px;
+}
+.knowledge-section:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+.knowledge-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--slate);
+  cursor: pointer;
+  user-select: none;
+}
+.knowledge-toggle input { accent-color: var(--blue); }
+.knowledge-source-list { margin: 0; padding: 0; }
+.knowledge-source-row,
+.knowledge-chunk-cite {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.knowledge-chunk-cite { flex-direction: column; align-items: stretch; }
+.knowledge-source-row:last-child,
+.knowledge-chunk-cite:last-child { border-bottom: none; }
+
 /* demo frame (inner pages) */
 .demo-frame {
   background: linear-gradient(170deg, #1e293b 0%, #0f172a 100%);

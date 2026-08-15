@@ -128,3 +128,41 @@ export const db = {
   deleteArtifact: (artifactId) =>
     fetch(`/api/projects?artifactId=${artifactId}`, { method: 'DELETE' }).then(handle)
 }
+
+// ---------- project knowledge (Defect Triage grounding) ----------
+
+export const knowledge = {
+  status: (projectId) =>
+    fetch(`/api/knowledge?projectId=${encodeURIComponent(projectId)}`).then(handle),
+
+  search: (projectId, body) =>
+    fetch(`/api/knowledge?projectId=${encodeURIComponent(projectId)}&action=search`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(handle),
+
+  sync: (projectId, body = {}) =>
+    fetch(`/api/knowledge?projectId=${encodeURIComponent(projectId)}&action=sync`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(handle),
+
+  uploadDoc: (projectId, { label, filename, content }) =>
+    fetch(`/api/knowledge?projectId=${encodeURIComponent(projectId)}&action=upload`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ label, filename, content })
+    }).then(handle),
+
+  addGitSource: (projectId, { gitUrl, branch }) =>
+    fetch(`/api/knowledge?projectId=${encodeURIComponent(projectId)}&action=source`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ gitUrl, branch })
+    }).then(handle),
+
+  deleteSource: (sourceId) =>
+    fetch(`/api/knowledge?sourceId=${encodeURIComponent(sourceId)}`, { method: 'DELETE' }).then(handle)
+}

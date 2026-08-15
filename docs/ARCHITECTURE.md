@@ -42,11 +42,13 @@ defaults. Section 5 onward is about closing that gap.
                           │  src/App.jsx · src/modules/* · src/lib/*     │
                           └───────────────┬───────────────┬─────────────┘
                                           │ POST /api/chat │ /api/projects
+                                          │ /api/knowledge │
                                           ▼               ▼
                           ┌─────────────────────────────────────────────┐
                           │          Vercel Serverless Functions          │
                           │  api/chat.js        api/projects.js           │
-                          │  (Anthropic proxy)  (Neon persistence)        │
+                          │  api/knowledge.js   (Neon persistence + RAG)  │
+                          │  (Anthropic proxy)                            │
                           └───────────────┬───────────────┬─────────────┘
                                           │               │
                        x-api-key (server) │               │ DATABASE_URL
@@ -55,6 +57,7 @@ defaults. Section 5 onward is about closing that gap.
                           │  Anthropic Messages │  │   Neon Postgres     │
                           │  API (Claude)       │  │  sdlc_projects      │
                           │                     │  │  sdlc_artifacts     │
+                          │                     │  │  sdlc_knowledge_*   │
                           └────────────────────┘  └────────────────────┘
 
    ── separate track, run from an engineer's machine or CI ──
@@ -85,17 +88,30 @@ The **Defect Triage** module is the one multi-step agent: it chains four prompts
 (intake → investigate → route → plan) client-side, with a confidence-gated loop
 back to the investigator (`MAX_LOOPS` in `DefectTriage.jsx`).
 
+Before each run, Defect Triage calls `retrieveProjectContext()` in
+`src/lib/retrieval.js`, which POSTs to `/api/knowledge?action=search`. Retrieved
+chunks (prior triage artifacts, uploaded runbooks, indexed GitHub code) are
+injected into every agent prompt as a cited context pack. Agents are instructed
+to prefer retrieved sources over general knowledge and to cite `[doc:...]` or
+`[code:path:line]` keys — there is no web search.
+
+Project Knowledge is managed from the Dashboard (`ProjectKnowledge.jsx`): sync
+prior artifacts, upload docs, connect a GitHub repo. Indexing runs server-side
+via `api/knowledge.js` and `api/lib/knowledge*.js`.
+
 ### 2.3 Component responsibilities
 
 | Layer | Files | Responsibility |
 |---|---|---|
 | SPA shell | `src/App.jsx`, `src/main.jsx` | Hash routing, nav, project context |
 | Modules | `src/modules/*.jsx` | One per accelerator; prompt-build + render |
-| Client lib | `src/lib/api.js` | `callClaude`, `parseModelJson`, `db.*` helpers |
+| Client lib | `src/lib/api.js` | `callClaude`, `parseModelJson`, `db.*`, `knowledge.*` |
+| Retrieval | `src/lib/retrieval.js` | Query builder + context pack for Defect Triage |
 | Prompts | `src/lib/prompts.js` | System prompts; all demand strict JSON |
 | Showcase | `src/lib/catalog.js`, `src/modules/Home.jsx` | ROI/taxonomy metadata cards |
 | AI proxy | `api/chat.js` | Server-side Anthropic call; key isolation |
-| Persistence | `api/projects.js`, `db/schema.sql` | Projects + artifacts (auto-creates schema) |
+| Knowledge | `api/knowledge.js`, `api/lib/knowledge*.js` | Ingest, hybrid search, Git/doc/artifact sync |
+| Persistence | `api/projects.js`, `db/schema.sql` | Projects + artifacts + knowledge tables |
 | Routing | `vercel.json` | SPA rewrites + `/api` passthrough |
 | Automation | `katalon/**` | Keyword-driven Guidewire UI tests |
 
@@ -121,8 +137,9 @@ back to the investigator (`MAX_LOOPS` in `DefectTriage.jsx`).
 | Hosting | Vercel | SPA + serverless functions in one project |
 | AI | Anthropic Claude (Messages API) | Model pinned via `ANTHROPIC_MODEL` |
 | Persistence | Neon Postgres (`@neondatabase/serverless`) | Pooled connection string |
+| Knowledge | tsvector + optional OpenAI embeddings | Hybrid search over project chunks |
 | Automation | Katalon Studio (WebUI), Groovy | Runs separately from the web app |
-| Secrets | Vercel env vars | `ANTHROPIC_API_KEY`, `DATABASE_URL`, `ANTHROPIC_MODEL` |
+| Secrets | Vercel env vars | `ANTHROPIC_API_KEY`, `DATABASE_URL`, `EMBEDDING_API_KEY`, `GITHUB_TOKEN` |
 
 ---
 
@@ -132,7 +149,10 @@ back to the investigator (`MAX_LOOPS` in `DefectTriage.jsx`).
 |---|---|---|
 | `ANTHROPIC_API_KEY` | `api/chat.js` | Server-side Claude auth |
 | `ANTHROPIC_MODEL` | `api/chat.js` | Model pin (default `claude-sonnet-4-6`) |
-| `DATABASE_URL` | `api/projects.js` | Neon **pooled** connection string (plain var, not a Secret) |
+| `DATABASE_URL` | `api/projects.js`, `api/knowledge.js` | Neon **pooled** connection string (plain var, not a Secret) |
+| `EMBEDDING_API_KEY` | `api/lib/knowledgeEmbed.js` | Optional OpenAI embeddings for vector search |
+| `GITHUB_TOKEN` | `api/lib/knowledgeGit.js` | Optional token for private GitHub repo indexing |
+| `DD_API_KEY` / `DD_APP_KEY` | `api/datadog.js` | Live Datadog log queries in Defect Triage |
 
 Katalon configuration lives in execution profiles (`katalon/Profiles/default.glbl`,
 `qa.glbl`): app URLs, credentials, timeout, screenshot toggle. **No production

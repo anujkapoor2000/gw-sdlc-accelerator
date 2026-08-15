@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { db } from '../lib/api.js'
+import ProjectKnowledge from '../components/ProjectKnowledge.jsx'
 
 const MODULES = [
   { id: 'story-forge', phase: 'Plan', name: 'Story Forge', desc: 'Raw requirements → sprint-ready stories with Gherkin ACs, GW touchpoints and points.' },
@@ -91,6 +92,8 @@ export default function Dashboard({ project, go }) {
           </div>
         ))}
       </div>
+
+      <ProjectKnowledge project={project} />
     </div>
   )
 }
