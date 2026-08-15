@@ -232,6 +232,46 @@ export function analyseDatadogEntries(entries, meta = {}) {
   }
 }
 
+/** True when JSON is a Datadog monitor/alert definition, not a log export. */
+export function isDatadogMonitorConfig(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false
+  const type = String(obj.type || '').toLowerCase()
+  if (type.includes('alert') || type === 'monitor') return true
+  if (typeof obj.query === 'string' && obj.query.includes('logs(') && (obj.message || obj.options)) {
+    return true
+  }
+  return Boolean(obj.name && obj.query && obj.options?.thresholds)
+}
+
+/**
+ * Build a defect report from a Datadog monitor/alert JSON (not log lines).
+ * @param {object} monitor
+ * @param {{ product?: string, env?: string }} [ctx]
+ */
+export function buildDefectReportFromMonitor(monitor, ctx = {}) {
+  const { product, env } = ctx
+  const tags = Array.isArray(monitor.tags) ? monitor.tags : []
+  const envTag = tags.find((t) => String(t).startsWith('env:'))?.split(':')[1]
+  const lines = [
+    `Datadog alert fired: ${monitor.name || 'Guidewire error rate spike'}`,
+    '',
+    `Alert type: ${monitor.type || 'log alert'}`,
+  ]
+  if (product) lines.push(`Product context: ${product}`)
+  lines.push(`Environment: ${env || envTag || 'Production'}`)
+  if (tags.length) lines.push(`Tags: ${tags.join(', ')}`)
+  if (monitor.query) lines.push('', 'Datadog log query:', monitor.query)
+  const crit = monitor.options?.thresholds?.critical
+  if (crit != null) lines.push('', `Threshold: more than ${crit} errors in the evaluation window`)
+  lines.push(
+    '',
+    'Impact: Policy ingestion, claim handling, or billing processing may be failing for the affected Guidewire service(s).',
+    '',
+    'Investigate underlying application errors. Export error logs from Datadog Logs Explorer, or use the Live Datadog query tab with the query above.'
+  )
+  return lines.join('\n')
+}
+
 /**
  * Parse log text and extract all error records.
  * @param {string} text
@@ -239,6 +279,27 @@ export function analyseDatadogEntries(entries, meta = {}) {
  */
 export function analyseDatadogLog(text, filename = 'log') {
   const { entries, format, parseWarnings } = parseDatadogLogs(text, filename)
+
+  if (entries.length === 1 && isDatadogMonitorConfig(entries[0])) {
+    return {
+      filename,
+      format: 'datadog-monitor',
+      kind: 'monitor',
+      source: 'file',
+      monitor: entries[0],
+      meta: null,
+      parseWarnings: [
+        ...parseWarnings,
+        'This JSON is a Datadog monitor/alert definition, not a log export. Pre-filled the defect from alert metadata — fetch actual error logs to ground the investigation.'
+      ],
+      totalEntries: 0,
+      errorCount: 0,
+      services: [],
+      errors: [],
+      entries: []
+    }
+  }
+
   return analyseDatadogEntries(entries, { filename, format, source: 'file', parseWarnings })
 }
 
@@ -419,6 +480,13 @@ export function buildEvidenceForError(analysis, errorId, maxChars = MAX_EVIDENCE
     text = text.slice(0, maxChars) + `\n\n… [truncated — ${text.length - maxChars} chars omitted to fit token budget]`
   }
   return text
+}
+
+/** Pull the inner query from a Datadog monitor logs("...") expression. */
+export function extractDatadogLogQuery(monitorQuery) {
+  if (!monitorQuery || typeof monitorQuery !== 'string') return ''
+  const m = monitorQuery.match(/logs\s*\(\s*"([^"]+)"\s*\)/i)
+  return m?.[1] || ''
 }
 
 function formatErrorBlock(error) {
