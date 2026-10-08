@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "GW SDLC Accelerator — Web Application",
+    "subtitle": "Vite + React SPA · Vercel serverless · Claude proxy · Neon persistence · optional RAG and Datadog",
+    "output": ".archify/architecture-gw-sdlc-webapp-20261008-090735/gw-sdlc-webapp.architecture.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/anujkapoor2000/gw-sdlc-accelerator",
+      "revision": "10eaea8be974054e550513871bb90fd203fcd2f3"
+    }
+  },
+  "components": [
+    {
+      "id": "users",
+      "type": "external",
+      "label": "Delivery Teams",
+      "sublabel": "BA · dev · QA · release",
+      "pos": [24, 300],
+      "size": [140, 64]
+    },
+    {
+      "id": "spa",
+      "type": "frontend",
+      "label": "React SPA",
+      "sublabel": "hash routes · SDLC modules",
+      "pos": [200, 300],
+      "size": [190, 70],
+      "sources": [
+        { "path": "src/App.jsx", "line": 42, "end_line": 60, "label": "Hash routing" },
+        { "path": "src/lib/api.js", "line": 25, "end_line": 49, "label": "callClaude → /api/chat" }
+      ]
+    },
+    {
+      "id": "vercel",
+      "type": "cloud",
+      "label": "Vercel",
+      "sublabel": "static build · /api routes",
+      "pos": [474, 300],
+      "size": [150, 64],
+      "sources": [
+        { "path": "vercel.json", "line": 10, "end_line": 13, "label": "SPA + API rewrites" }
+      ]
+    },
+    {
+      "id": "chat",
+      "type": "backend",
+      "label": "/api/chat",
+      "sublabel": "Edge · Anthropic SSE proxy",
+      "pos": [718, 300],
+      "size": [190, 70],
+      "tag": "keys server-side",
+      "sources": [
+        { "path": "api/chat.js", "line": 5, "label": "Edge runtime" },
+        { "path": "api/chat.js", "line": 140, "end_line": 154, "label": "Anthropic stream" }
+      ]
+    },
+    {
+      "id": "anthropic",
+      "type": "external",
+      "label": "Anthropic API",
+      "sublabel": "Claude Messages · stream",
+      "pos": [1040, 300],
+      "size": [170, 64],
+      "sources": [
+        { "path": "api/chat.js", "line": 140, "label": "v1/messages" }
+      ]
+    },
+    {
+      "id": "projects",
+      "type": "backend",
+      "label": "/api/projects",
+      "sublabel": "projects · saved artifacts",
+      "pos": [474, 470],
+      "size": [180, 64],
+      "sources": [
+        { "path": "api/projects.js", "line": 1, "label": "Neon persistence" },
+        { "path": "src/lib/api.js", "line": 112, "label": "db.* client helpers" }
+      ]
+    },
+    {
+      "id": "knowledge",
+      "type": "backend",
+      "label": "/api/knowledge",
+      "sublabel": "RAG CRUD · retrieve · reindex",
+      "pos": [718, 470],
+      "size": [190, 64],
+      "sources": [
+        { "path": "api/knowledge.js", "line": 54, "end_line": 70, "label": "retrieve action" },
+        { "path": "api/chat.js", "line": 93, "end_line": 109, "label": "Edge calls retrieve" }
+      ]
+    },
+    {
+      "id": "datadog_proxy",
+      "type": "backend",
+      "label": "/api/datadog",
+      "sublabel": "Logs Search v2 proxy",
+      "pos": [474, 600],
+      "size": [180, 64],
+      "sources": [
+        { "path": "api/datadog.js", "line": 1, "end_line": 5, "label": "DD keys server-side" },
+        { "path": "src/lib/datadog.js", "line": 31, "end_line": 36, "label": "Browser POST proxy" }
+      ]
+    },
+    {
+      "id": "neon",
+      "type": "database",
+      "label": "Neon Postgres",
+      "sublabel": "projects · artifacts · knowledge",
+      "pos": [997, 470],
+      "size": [170, 64],
+      "sources": [
+        { "path": "api/projects.js", "line": 9, "end_line": 15, "label": "DATABASE_URL" },
+        { "path": "api/_lib/schema.js", "line": 1, "label": "Auto schema" }
+      ]
+    },
+    {
+      "id": "embeddings",
+      "type": "external",
+      "label": "Embedding provider",
+      "sublabel": "Voyage · OpenAI · local sparse",
+      "pos": [997, 600],
+      "size": [170, 64],
+      "sources": [
+        { "path": "api/_lib/embeddings.js", "line": 34, "end_line": 46, "label": "Voyage API" },
+        { "path": "api/_lib/embeddings.js", "line": 21, "label": "sparse fallback" }
+      ]
+    },
+    {
+      "id": "datadog_saas",
+      "type": "external",
+      "label": "Datadog",
+      "sublabel": "Logs API v2",
+      "pos": [748, 600],
+      "size": [150, 64],
+      "sources": [
+        { "path": "api/datadog.js", "line": 1, "label": "Search API proxy" }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Vercel deployment (static + serverless)",
+      "wraps": ["vercel", "chat", "projects", "knowledge", "datadog_proxy"]
+    },
+    {
+      "kind": "security-group",
+      "label": "Secrets never reach the browser",
+      "wraps": ["chat", "projects", "knowledge", "datadog_proxy"]
+    }
+  ],
+  "connections": [
+    {
+      "id": "users-spa",
+      "from": "users",
+      "to": "spa",
+      "label": "HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "id": "spa-vercel",
+      "from": "spa",
+      "to": "vercel",
+      "label": "fetch /api/*",
+      "variant": "emphasis"
+    },
+    {
+      "id": "vercel-chat",
+      "from": "vercel",
+      "to": "chat",
+      "label": "POST /api/chat",
+      "variant": "emphasis"
+    },
+    {
+      "id": "chat-anthropic",
+      "from": "chat",
+      "to": "anthropic",
+      "label": "SSE stream · x-api-key",
+      "variant": "emphasis"
+    },
+    {
+      "id": "vercel-projects",
+      "from": "vercel",
+      "to": "projects",
+      "label": "/api/projects",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "vercel-knowledge",
+      "from": "vercel",
+      "to": "knowledge",
+      "label": "/api/knowledge",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "vercel-datadog",
+      "from": "vercel",
+      "to": "datadog_proxy",
+      "label": "/api/datadog",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "chat-knowledge-rag",
+      "from": "chat",
+      "to": "knowledge",
+      "label": "RAG retrieve (optional)",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "projects-neon",
+      "from": "projects",
+      "to": "neon",
+      "label": "SQL"
+    },
+    {
+      "id": "knowledge-neon",
+      "from": "knowledge",
+      "to": "neon",
+      "label": "SQL · vectors"
+    },
+    {
+      "id": "knowledge-embed",
+      "from": "knowledge",
+      "to": "embeddings",
+      "label": "embed on index",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "datadog-upstream",
+      "from": "datadog_proxy",
+      "to": "datadog_saas",
+      "label": "Logs Search v2"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Client modules",
+      "items": [
+        "Seven hash-routed accelerators (Story Forge through Defect Triage)",
+        "Defect Triage chains four client-side agent prompts; others mostly single callClaude",
+        "Save to project posts artifact JSON via db helpers in src/lib/api.js"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "AI + knowledge",
+      "items": [
+        "Edge /api/chat streams tokens; optional project knowledge injected before Anthropic call",
+        "RAG indexing and retrieval live on Node /api/knowledge (Edge cannot use Neon/fs)",
+        "Embeddings prefer Voyage; OpenAI or local sparse vectors if unset"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Operate",
+      "items": [
+        "Defect Triage can query live logs through /api/datadog (DD_API_KEY server-side)",
+        "No end-user authentication in current demo build — treat as pilot-grade"
+      ]
+    }
+  ]
+}
